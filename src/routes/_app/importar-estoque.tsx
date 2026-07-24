@@ -85,7 +85,7 @@ function ImportarEstoque() {
           catId = catMap.get(catNome.toLowerCase()) ?? null;
           if (!catId) {
             const ins: any = await sb.from("categories").insert({ nome: catNome }).select("id").single();
-            if (ins.data) { catId = ins.data.id; catMap.set(catNome.toLowerCase(), catId); }
+            if (ins.data) { catId = ins.data.id as string; catMap.set(catNome.toLowerCase(), catId!); }
           }
         }
 
