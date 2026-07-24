@@ -14,7 +14,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { brl, formatDate } from "@/lib/format";
 import { Upload, FileText, Trash2, Package } from "lucide-react";
-import { parseNfeXml } from "@/lib/nfe-xml";
+import { parseNFeXml } from "@/lib/nfe-xml";
 import { useAuth } from "@/lib/auth-context";
 import { round } from "@/lib/format";
 
@@ -52,7 +52,7 @@ function Compras() {
     try {
       const text = await f.text();
       setXmlText(text);
-      const parsed = parseNfeXml(text);
+      const parsed = parseNFeXml(text);
       setNfe(parsed);
       setNumeroNota(parsed.numero ?? "");
       setValorFrete(parsed.frete ?? 0);
