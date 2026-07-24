@@ -16,7 +16,7 @@ import { brl, formatDate } from "@/lib/format";
 import { Upload, FileText, Trash2, Package } from "lucide-react";
 import { parseNFeXml } from "@/lib/nfe-xml";
 import { useAuth } from "@/lib/auth-context";
-import { round } from "@/lib/format";
+const round = (v: number, d = 2) => Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
 
 export const Route = createFileRoute("/_app/compras")({
   component: Compras,
