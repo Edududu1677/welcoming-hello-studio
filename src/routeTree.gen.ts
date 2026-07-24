@@ -13,6 +13,8 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppImportarVendasRouteImport } from './routes/_app/importar-vendas'
+import { Route as AppImportarEstoqueRouteImport } from './routes/_app/importar-estoque'
 import { Route as AppEstoqueRouteImport } from './routes/_app/estoque'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppProdutosIndexRouteImport } from './routes/_app/produtos.index'
@@ -37,6 +39,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppImportarVendasRoute = AppImportarVendasRouteImport.update({
+  id: '/importar-vendas',
+  path: '/importar-vendas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppImportarEstoqueRoute = AppImportarEstoqueRouteImport.update({
+  id: '/importar-estoque',
+  path: '/importar-estoque',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppEstoqueRoute = AppEstoqueRouteImport.update({
   id: '/estoque',
@@ -70,6 +82,8 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/estoque': typeof AppEstoqueRoute
+  '/importar-estoque': typeof AppImportarEstoqueRoute
+  '/importar-vendas': typeof AppImportarVendasRoute
   '/produtos/$id': typeof AppProdutosIdRoute
   '/produtos/novo': typeof AppProdutosNovoRoute
   '/produtos/': typeof AppProdutosIndexRoute
@@ -80,6 +94,8 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/estoque': typeof AppEstoqueRoute
+  '/importar-estoque': typeof AppImportarEstoqueRoute
+  '/importar-vendas': typeof AppImportarVendasRoute
   '/produtos/$id': typeof AppProdutosIdRoute
   '/produtos/novo': typeof AppProdutosNovoRoute
   '/produtos': typeof AppProdutosIndexRoute
@@ -92,6 +108,8 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/estoque': typeof AppEstoqueRoute
+  '/_app/importar-estoque': typeof AppImportarEstoqueRoute
+  '/_app/importar-vendas': typeof AppImportarVendasRoute
   '/_app/produtos/$id': typeof AppProdutosIdRoute
   '/_app/produtos/novo': typeof AppProdutosNovoRoute
   '/_app/produtos/': typeof AppProdutosIndexRoute
@@ -104,6 +122,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/dashboard'
     | '/estoque'
+    | '/importar-estoque'
+    | '/importar-vendas'
     | '/produtos/$id'
     | '/produtos/novo'
     | '/produtos/'
@@ -114,6 +134,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/dashboard'
     | '/estoque'
+    | '/importar-estoque'
+    | '/importar-vendas'
     | '/produtos/$id'
     | '/produtos/novo'
     | '/produtos'
@@ -125,6 +147,8 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_app/dashboard'
     | '/_app/estoque'
+    | '/_app/importar-estoque'
+    | '/_app/importar-vendas'
     | '/_app/produtos/$id'
     | '/_app/produtos/novo'
     | '/_app/produtos/'
@@ -167,6 +191,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/importar-vendas': {
+      id: '/_app/importar-vendas'
+      path: '/importar-vendas'
+      fullPath: '/importar-vendas'
+      preLoaderRoute: typeof AppImportarVendasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/importar-estoque': {
+      id: '/_app/importar-estoque'
+      path: '/importar-estoque'
+      fullPath: '/importar-estoque'
+      preLoaderRoute: typeof AppImportarEstoqueRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/estoque': {
       id: '/_app/estoque'
       path: '/estoque'
@@ -208,6 +246,8 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppEstoqueRoute: typeof AppEstoqueRoute
+  AppImportarEstoqueRoute: typeof AppImportarEstoqueRoute
+  AppImportarVendasRoute: typeof AppImportarVendasRoute
   AppProdutosIdRoute: typeof AppProdutosIdRoute
   AppProdutosNovoRoute: typeof AppProdutosNovoRoute
   AppProdutosIndexRoute: typeof AppProdutosIndexRoute
@@ -216,6 +256,8 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppEstoqueRoute: AppEstoqueRoute,
+  AppImportarEstoqueRoute: AppImportarEstoqueRoute,
+  AppImportarVendasRoute: AppImportarVendasRoute,
   AppProdutosIdRoute: AppProdutosIdRoute,
   AppProdutosNovoRoute: AppProdutosNovoRoute,
   AppProdutosIndexRoute: AppProdutosIndexRoute,
