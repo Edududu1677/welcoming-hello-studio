@@ -55,14 +55,14 @@ function Compras() {
       const parsed = parseNFeXml(text);
       setNfe(parsed);
       setNumeroNota(parsed.numero ?? "");
-      setValorFrete(parsed.frete ?? 0);
+      setValorFrete(parsed.valor_frete ?? 0);
       // Try find supplier by CNPJ
-      if (parsed.cnpj) {
-        const { data: sup } = await sb.from("suppliers").select("id").eq("cnpj", parsed.cnpj).maybeSingle();
+      if (parsed.fornecedor_cnpj) {
+        const { data: sup } = await sb.from("suppliers").select("id").eq("cnpj", parsed.fornecedor_cnpj).maybeSingle();
         if (sup) setFornecedorId(sup.id);
         else {
           // Auto-create supplier
-          const { data: novo } = await sb.from("suppliers").insert({ razao_social: parsed.fornecedor ?? "Fornecedor NF-e", cnpj: parsed.cnpj }).select("id").single();
+          const { data: novo } = await sb.from("suppliers").insert({ razao_social: parsed.fornecedor_nome ?? "Fornecedor NF-e", cnpj: parsed.fornecedor_cnpj }).select("id").single();
           if (novo) { setFornecedorId(novo.id); qc.invalidateQueries({ queryKey: ["suppliers-lite"] }); }
         }
       }
@@ -164,7 +164,7 @@ function Compras() {
 
               {nfe && (
                 <Alert><FileText className="h-4 w-4" /><AlertDescription>
-                  <strong>NF-e importada:</strong> Nº {nfe.numero} · {nfe.fornecedor} ({nfe.cnpj}) · Emissão {nfe.data_emissao ? formatDate(nfe.data_emissao) : "?"}
+                  <strong>NF-e importada:</strong> Nº {nfe.numero} · {nfe.fornecedor_nome} ({nfe.fornecedor_cnpj}) · Emissão {nfe.data_emissao ? formatDate(nfe.data_emissao) : "?"}
                 </AlertDescription></Alert>
               )}
 
