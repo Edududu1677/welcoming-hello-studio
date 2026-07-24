@@ -9,7 +9,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMemo, useState } from "react";
 import { readSpreadsheet, downloadXLSX, matchColumn } from "@/lib/xlsx-utils";
 import { supabase } from "@/integrations/supabase/client";
-import { brl, num } from "@/lib/format";
 import { toast } from "sonner";
 import { Download, Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -19,13 +18,19 @@ export const Route = createFileRoute("/_app/importar-estoque")({
   head: () => ({ meta: [{ title: "Importar estoque — Gestor MiniMarket" }, { name: "description", content: "Importe planilhas XLSX/CSV de estoque." }] }),
 });
 
-type Row = Record<string, any>;
+const TIPO_MAP: Record<string, string> = {
+  saldo_inicial: "estoque_inicial",
+  substituir: "estoque_substituir",
+  ajustar: "estoque_ajustar",
+  adicionar: "estoque_somar",
+};
 
 function ImportarEstoque() {
   const { user } = useAuth();
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [tipo, setTipo] = useState<"saldo_inicial" | "substituir" | "ajustar" | "adicionar">("substituir");
+  const [fileName, setFileName] = useState<string>("");
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<{ ok: number; novos: number; erros: string[] } | null>(null);
@@ -33,7 +38,7 @@ function ImportarEstoque() {
   async function handleFile(f: File) {
     try {
       const { headers, rows } = await readSpreadsheet(f);
-      setHeaders(headers); setRows(rows); setReport(null);
+      setHeaders(headers); setRows(rows); setReport(null); setFileName(f.name);
       setMapping({
         codigo_barras: matchColumn(headers, ["codigo de barras", "codigo_barras", "ean", "gtin", "cod barras", "cod. barras"]) ?? "",
         nome: matchColumn(headers, ["nome", "produto", "descricao", "descrição"]) ?? "",
@@ -47,6 +52,7 @@ function ImportarEstoque() {
   }
 
   const preview = useMemo(() => rows.slice(0, 5), [rows]);
+  const sb: any = supabase;
 
   async function runImport() {
     if (!rows.length) return toast.error("Nenhum dado carregado");
@@ -55,13 +61,12 @@ function ImportarEstoque() {
     const erros: string[] = [];
     let ok = 0, novos = 0;
 
-    // Load categories cache
-    const catsRes = await supabase.from("categories").select("id, nome");
+    const catsRes = await sb.from("categories").select("id, nome");
     const catMap = new Map<string, string>();
     (catsRes.data ?? []).forEach((c: any) => catMap.set(c.nome.toLowerCase().trim(), c.id));
 
-    const { data: batchRow } = await supabase.from("import_batches").insert({
-      tipo: "estoque", subtipo: tipo, created_by: user?.id, status: "processando", total_registros: rows.length,
+    const { data: batchRow } = await sb.from("import_batches").insert({
+      tipo: TIPO_MAP[tipo], arquivo_nome: fileName, user_id: user?.id, registros_total: rows.length, status: "processando",
     }).select("id").single();
     const batchId = batchRow?.id;
 
@@ -79,66 +84,60 @@ function ImportarEstoque() {
         if (catNome) {
           catId = catMap.get(catNome.toLowerCase()) ?? null;
           if (!catId) {
-            const ins = await supabase.from("categories").insert({ nome: catNome }).select("id").single();
+            const ins = await sb.from("categories").insert({ nome: catNome }).select("id").single();
             if (ins.data) { catId = ins.data.id; catMap.set(catNome.toLowerCase(), catId); }
           }
         }
 
-        // Find product
         let prod: any = null;
         if (cb) {
-          const { data } = await supabase.from("products").select("id, estoque_atual").eq("codigo_barras", cb).maybeSingle();
+          const { data } = await sb.from("products").select("id, estoque_atual").eq("codigo_barras", cb).maybeSingle();
           prod = data;
         }
         if (!prod && nome) {
-          const { data } = await supabase.from("products").select("id, estoque_atual").eq("nome", nome).maybeSingle();
+          const { data } = await sb.from("products").select("id, estoque_atual").eq("nome", nome).maybeSingle();
           prod = data;
         }
 
         if (!prod) {
-          // Create
           const payload: any = {
             codigo_barras: cb || null, nome: nome || `Produto ${cb}`,
             custo_medio: custo, custo_ultima_compra: custo, preco_venda: preco,
-            estoque_atual: qtd, estoque_minimo: estMin, categoria_id: catId,
+            estoque_atual: 0, estoque_minimo: estMin, categoria_id: catId,
           };
-          const { data, error } = await supabase.from("products").insert(payload).select("id").single();
+          const { data, error } = await sb.from("products").insert(payload).select("id").single();
           if (error) throw error;
           novos++;
           if (qtd > 0) {
-            await supabase.rpc("apply_stock_movement" as any, {
-              _product_id: data.id, _tipo: "inventario", _quantidade: qtd, _custo: custo, _motivo: `Importação: ${tipo}`, _documento_ref: batchId,
+            await sb.rpc("apply_stock_movement", {
+              _product_id: data.id, _tipo: "inventario", _quantidade: qtd, _custo: custo || null, _motivo: `Importação: ${tipo}`, _documento_ref: batchId,
             });
           }
         } else {
           const atual = Number(prod.estoque_atual);
           let delta = 0;
-          if (tipo === "substituir" || tipo === "saldo_inicial") delta = qtd - atual;
-          else if (tipo === "ajustar") delta = qtd - atual;
+          if (tipo === "substituir" || tipo === "saldo_inicial" || tipo === "ajustar") delta = qtd - atual;
           else if (tipo === "adicionar") delta = qtd;
           if (delta !== 0) {
-            const { error } = await supabase.rpc("apply_stock_movement" as any, {
+            const { error } = await sb.rpc("apply_stock_movement", {
               _product_id: prod.id, _tipo: "inventario", _quantidade: delta, _custo: custo || null, _motivo: `Importação: ${tipo}`, _documento_ref: batchId,
             });
             if (error) throw error;
           }
-          // Update prices if provided
           const update: any = {};
           if (custo > 0) update.custo_ultima_compra = custo;
           if (preco > 0) update.preco_venda = preco;
           if (estMin > 0) update.estoque_minimo = estMin;
           if (catId) update.categoria_id = catId;
-          if (Object.keys(update).length) await supabase.from("products").update(update).eq("id", prod.id);
+          if (Object.keys(update).length) await sb.from("products").update(update).eq("id", prod.id);
         }
         ok++;
-      } catch (e: any) {
-        erros.push(e.message ?? "Erro");
-      }
+      } catch (e: any) { erros.push(e.message ?? "Erro"); }
     }
 
-    if (batchId) await supabase.from("import_batches").update({
+    if (batchId) await sb.from("import_batches").update({
       status: erros.length ? "concluido_com_erros" : "concluido",
-      total_sucesso: ok, total_erros: erros.length, completed_at: new Date().toISOString(),
+      registros_ok: ok, registros_erro: erros.length, erros: erros.slice(0, 200),
     }).eq("id", batchId);
 
     setReport({ ok, novos, erros });
@@ -183,7 +182,7 @@ function ImportarEstoque() {
           <CardHeader><CardTitle>2. Mapeamento das colunas</CardTitle></CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
             {["codigo_barras", "nome", "quantidade", "custo", "preco_venda", "estoque_minimo", "categoria"].map((f) => (
-              <div key={f}><Label className="capitalize">{f.replace("_", " ")}</Label>
+              <div key={f}><Label className="capitalize">{f.replace(/_/g, " ")}</Label>
                 <Select value={mapping[f] || "none"} onValueChange={(v) => setMapping({ ...mapping, [f]: v === "none" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                   <SelectContent>
