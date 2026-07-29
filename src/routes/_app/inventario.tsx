@@ -85,6 +85,16 @@ function Inventario() {
     setCurrent(null); setItems([]); qc.invalidateQueries();
   }
 
+  async function removeInv(inv: any) {
+    if (inv.status !== "aberto") return toast.error("Só é possível excluir inventários abertos");
+    if (!confirm(`Excluir o inventário "${inv.descricao}"? A contagem será descartada.`)) return;
+    await sb.from("inventory_items").delete().eq("inventory_id", inv.id);
+    const { error } = await sb.from("inventories").delete().eq("id", inv.id);
+    if (error) return toast.error(error.message);
+    toast.success("Inventário excluído");
+    qc.invalidateQueries({ queryKey: ["inventories"] });
+  }
+
   const filtered = items.filter((it) => !q || it.nome?.toLowerCase().includes(q.toLowerCase()) || it.codigo_barras?.includes(q));
   const totalDiff = items.reduce((a, it) => a + (it.quantidade_contada != null ? (Number(it.quantidade_contada) - Number(it.quantidade_sistema)) * Number(it.custo_medio || 0) : 0), 0);
 
@@ -147,7 +157,10 @@ function Inventario() {
                   <TableCell>{inv.descricao}</TableCell>
                   <TableCell className="text-xs">{formatDateTime(inv.aberto_em)}</TableCell>
                   <TableCell><span className="text-xs px-2 py-1 rounded bg-muted">{inv.status}</span></TableCell>
-                  <TableCell><Button size="sm" variant="ghost" onClick={() => loadInv(inv)}>Abrir</Button></TableCell>
+                  <TableCell className="space-x-1 whitespace-nowrap">
+                    <Button size="sm" variant="ghost" onClick={() => loadInv(inv)}>Abrir</Button>
+                    {inv.status === "aberto" && <Button size="sm" variant="ghost" onClick={() => removeInv(inv)}>Excluir</Button>}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   LayoutDashboard, Package, Warehouse, FileUp, ShoppingCart, Truck,
   ClipboardList, TrendingDown, Wallet, BarChart3, Bell, Users, Settings,
-  Store, LogOut, Menu, FileDown,
+  Store, LogOut, Menu, FileDown, Tags,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_app")({
 const menu = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/produtos", label: "Produtos", icon: Package },
+  { to: "/categorias", label: "Categorias", icon: Tags },
   { to: "/estoque", label: "Estoque", icon: Warehouse },
   { to: "/importar-estoque", label: "Importar estoque", icon: FileUp },
   { to: "/importar-vendas", label: "Importar vendas", icon: FileDown },

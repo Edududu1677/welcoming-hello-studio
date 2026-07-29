@@ -149,6 +149,25 @@ function Compras() {
     setOpen(false); reset(); qc.invalidateQueries();
   }
 
+  async function removePurchase(c: any) {
+    if (!confirm(`Excluir a compra ${c.numero_nota ?? c.id.slice(0, 8)}? O estoque será revertido.`)) return;
+    const { data: its } = await sb.from("purchase_items").select("product_id, quantidade, custo_total_unitario").eq("purchase_id", c.id);
+    for (const it of its ?? []) {
+      if (it.product_id) {
+        await sb.rpc("apply_stock_movement", {
+          _product_id: it.product_id, _tipo: "devolucao_fornecedor",
+          _quantidade: -Math.abs(Number(it.quantidade)), _custo: it.custo_total_unitario,
+          _motivo: "Reversão de compra", _documento_ref: c.id,
+        });
+      }
+    }
+    await sb.from("purchase_items").delete().eq("purchase_id", c.id);
+    const { error } = await sb.from("purchases").delete().eq("id", c.id);
+    if (error) return toast.error(error.message);
+    toast.success("Compra excluída e estoque revertido");
+    qc.invalidateQueries();
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -229,9 +248,9 @@ function Compras() {
         <CardHeader><CardTitle>Últimas entradas</CardTitle></CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
-            <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Fornecedor</TableHead><TableHead>Nº nota</TableHead><TableHead>Origem</TableHead><TableHead className="text-right">Valor</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Fornecedor</TableHead><TableHead>Nº nota</TableHead><TableHead>Origem</TableHead><TableHead className="text-right">Valor</TableHead><TableHead></TableHead></TableRow></TableHeader>
             <TableBody>
-              {(!compras || compras.length === 0) && <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma entrada registrada</TableCell></TableRow>}
+              {(!compras || compras.length === 0) && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma entrada registrada</TableCell></TableRow>}
               {compras?.map((c: any) => (
                 <TableRow key={c.id}>
                   <TableCell>{formatDate(c.data_entrada)}</TableCell>
@@ -239,6 +258,7 @@ function Compras() {
                   <TableCell>{c.numero_nota ?? "—"}</TableCell>
                   <TableCell><span className="text-xs px-2 py-1 rounded bg-muted">{c.origem}</span></TableCell>
                   <TableCell className="text-right font-medium">{brl(c.valor_total)}</TableCell>
+                  <TableCell><Button size="sm" variant="ghost" onClick={() => removePurchase(c)}><Trash2 className="h-3 w-3 text-red-600" /></Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>

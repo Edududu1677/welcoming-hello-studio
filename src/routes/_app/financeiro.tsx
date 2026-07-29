@@ -55,6 +55,14 @@ function Financeiro() {
     qc.invalidateQueries({ queryKey: ["expenses"] });
   }
 
+  async function remove(e: any) {
+    if (!confirm(`Excluir a despesa "${e.descricao}"?`)) return;
+    const { error } = await sb.from("expenses").delete().eq("id", e.id);
+    if (error) return toast.error(error.message);
+    toast.success("Despesa excluída");
+    qc.invalidateQueries({ queryKey: ["expenses"] });
+  }
+
   const totalPend = exp?.filter((e: any) => e.status === "pendente" || e.status === "vencido").reduce((a: number, e: any) => a + Number(e.valor), 0) ?? 0;
   const totalPago = exp?.filter((e: any) => e.status === "pago").reduce((a: number, e: any) => a + Number(e.valor), 0) ?? 0;
 
@@ -127,9 +135,10 @@ function Financeiro() {
                       {(e.status === "vencido" || vencido) && <Badge variant="destructive">Vencido</Badge>}
                       {e.status === "cancelado" && <Badge variant="outline">Cancelado</Badge>}
                     </TableCell>
-                    <TableCell className="space-x-1">
+                    <TableCell className="space-x-1 whitespace-nowrap">
                       {e.status !== "pago" && <Button size="sm" variant="ghost" onClick={() => pagar(e)}>Pagar</Button>}
                       <Button size="sm" variant="ghost" onClick={() => { setEditing(e); setForm({ ...e }); setOpen(true); }}>Editar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => remove(e)}>Excluir</Button>
                     </TableCell>
                   </TableRow>
                 );
