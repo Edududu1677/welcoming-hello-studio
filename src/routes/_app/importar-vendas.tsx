@@ -38,22 +38,37 @@ function ImportarVendas() {
     queryFn: async () => (await sb.from("import_batches").select("id, arquivo_nome, status, registros_total, registros_ok, registros_erro, registros_duplicados, created_at").eq("tipo", "vendas").order("created_at", { ascending: false }).limit(20)).data ?? [],
   });
 
+  function autoMap(hdrs: string[]) {
+    setMapping({
+      data: matchColumn(hdrs, ["data", "data_venda", "data venda", "date", "dt", "dt_venda", "data emissao", "data da venda", "emissao"]) ?? "",
+      hora: matchColumn(hdrs, ["hora", "time", "horario", "hr"]) ?? "",
+      codigo_barras: matchColumn(hdrs, ["codigo de barras", "codigo_barras", "cod barras", "cod_barras", "ean", "gtin", "codigo ean", "barras", "cod_ean", "codbarras"]) ?? "",
+      nome: matchColumn(hdrs, ["produto", "nome", "descricao", "descrição", "nome_produto", "desc_produto", "desc", "item", "mercadoria"]) ?? "",
+      quantidade: matchColumn(hdrs, ["quantidade", "qtd", "qtde", "qte", "qt", "quant", "qtd_vendida", "quantidade vendida"]) ?? "",
+      preco_unitario: matchColumn(hdrs, ["preco unitario", "preço unitário", "valor unitario", "valor unitário", "preco", "preço", "vlr_unit", "vl_unit", "pr_unit", "preco_unit", "unitario"]) ?? "",
+      valor_total: matchColumn(hdrs, ["valor total", "total", "valor", "vlr_total", "vl_total", "total_venda", "valor_venda", "subtotal", "vlr"]) ?? "",
+      forma_pagamento: matchColumn(hdrs, ["forma pagamento", "forma de pagamento", "pagamento", "fpagto", "meio_pagamento", "forma_pag", "tipo_pagamento"]) ?? "",
+      codigo_venda: matchColumn(hdrs, ["codigo venda", "codigo_venda", "cupom", "numero venda", "transacao", "transação", "num_venda", "nr_venda", "ncupom", "num_cupom", "cupom_fiscal", "id_venda"]) ?? "",
+    });
+  }
+
   async function handleFile(f: File) {
     try {
       const { headers, rows } = await readSpreadsheet(f);
       setHeaders(headers); setRows(rows); setReport(null); setFileName(f.name);
-      setMapping({
-        data: matchColumn(headers, ["data", "data_venda", "data venda", "date"]) ?? "",
-        hora: matchColumn(headers, ["hora", "time"]) ?? "",
-        codigo_barras: matchColumn(headers, ["codigo de barras", "codigo_barras", "ean", "gtin", "cod barras"]) ?? "",
-        nome: matchColumn(headers, ["produto", "nome", "descricao", "descrição"]) ?? "",
-        quantidade: matchColumn(headers, ["quantidade", "qtd", "qtde"]) ?? "",
-        preco_unitario: matchColumn(headers, ["preco unitario", "preço unitário", "valor unitario", "valor unitário", "preco", "preço"]) ?? "",
-        valor_total: matchColumn(headers, ["valor total", "total", "valor"]) ?? "",
-        forma_pagamento: matchColumn(headers, ["forma pagamento", "forma de pagamento", "pagamento"]) ?? "",
-        codigo_venda: matchColumn(headers, ["codigo venda", "codigo_venda", "cupom", "numero venda", "transacao", "transação"]) ?? "",
-      });
+      autoMap(headers);
+      if (!rows.length) toast.warning("Nenhuma linha detectada no arquivo");
     } catch (e: any) { toast.error("Erro ao ler: " + e.message); }
+  }
+
+  function handlePaste() {
+    try {
+      const { headers, rows } = parsePastedData(pasted);
+      if (!rows.length) return toast.error("Nada para importar. Cole com a primeira linha sendo os títulos das colunas.");
+      setHeaders(headers); setRows(rows); setReport(null); setFileName("(colado)");
+      autoMap(headers);
+      toast.success(`${rows.length} linhas carregadas`);
+    } catch (e: any) { toast.error("Erro ao processar: " + e.message); }
   }
 
   const preview = useMemo(() => rows.slice(0, 5), [rows]);
