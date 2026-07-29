@@ -81,9 +81,12 @@ function ImportarVendas() {
       if (v instanceof Date) base = v;
       else {
         const s = String(v).trim();
-        const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-        if (m) base = new Date(`${m[3]}-${m[2]}-${m[1]}T00:00:00`);
-        else { const d = new Date(s); if (!isNaN(d.getTime())) base = d; }
+        // "28/07/2026 20:22" or "28/07/2026 20:22:33"
+        const md = s.match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+        if (md) {
+          const [, dd, mm, yyyy, hh, mi, ss] = md;
+          base = new Date(`${yyyy}-${mm}-${dd}T${(hh ?? "00").padStart(2, "0")}:${mi ?? "00"}:${ss ?? "00"}`);
+        } else { const d = new Date(s); if (!isNaN(d.getTime())) base = d; }
       }
     }
     if (hora) {
@@ -95,7 +98,9 @@ function ImportarVendas() {
 
   async function runImport() {
     if (!rows.length) return toast.error("Nenhum dado carregado");
-    if (!mapping.codigo_barras) return toast.error("Mapeie o código de barras");
+    if (!mapping.codigo_barras && !mapping.codigo_interno && !mapping.nome) {
+      return toast.error("Mapeie ao menos um identificador de produto: código de barras, código do produto ou nome");
+    }
     if (!mapping.quantidade) return toast.error("Mapeie a quantidade");
     setImporting(true);
     const erros: string[] = [];
@@ -109,26 +114,51 @@ function ImportarVendas() {
 
     for (const r of rows) {
       try {
-        const cb = String(r[mapping.codigo_barras] ?? "").trim();
-        if (!cb) { erros.push("Sem código de barras"); continue; }
+        const cb = mapping.codigo_barras ? String(r[mapping.codigo_barras] ?? "").trim() : "";
+        const ci = mapping.codigo_interno ? String(r[mapping.codigo_interno] ?? "").trim() : "";
+        const nomeProd = mapping.nome ? String(r[mapping.nome] ?? "").trim() : "";
+        if (!cb && !ci && !nomeProd) { erros.push("Sem identificador de produto"); continue; }
+
         const qtd = Number(String(r[mapping.quantidade] ?? "0").replace(",", "."));
+        if (!qtd || !isFinite(qtd)) { erros.push(`Quantidade inválida (${nomeProd || ci || cb})`); continue; }
         const preco = mapping.preco_unitario ? Number(String(r[mapping.preco_unitario] ?? "0").replace(",", ".")) : 0;
         const valorTot = mapping.valor_total ? Number(String(r[mapping.valor_total] ?? "0").replace(",", ".")) : (preco * qtd);
         const dataVenda = parseDate(mapping.data ? r[mapping.data] : null, mapping.hora ? r[mapping.hora] : null);
         const codVenda = mapping.codigo_venda ? String(r[mapping.codigo_venda] ?? "") : null;
         const forma = mapping.forma_pagamento ? String(r[mapping.forma_pagamento] ?? "") : null;
+        const operador = mapping.operador ? String(r[mapping.operador] ?? "") : null;
 
-        const hash = `${codVenda ?? ""}|${cb}|${qtd}|${valorTot}|${dataVenda.slice(0, 10)}`;
+        const hash = `${codVenda ?? ""}|${cb || ci || nomeProd}|${qtd}|${valorTot}|${dataVenda}`;
         const { data: dup } = await sb.from("sales").select("id").eq("hash_dedupe", hash).maybeSingle();
         if (dup) { duplicados++; continue; }
 
-        const { data: prod } = await sb.from("products").select("id, custo_medio, nome").eq("codigo_barras", cb).maybeSingle();
+        // Look up product: by barcode, internal code, or name
+        let prod: any = null;
+        if (cb) {
+          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").eq("codigo_barras", cb).maybeSingle();
+          prod = data;
+        }
+        if (!prod && ci) {
+          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").eq("codigo_interno", ci).maybeSingle();
+          prod = data;
+        }
+        if (!prod && nomeProd) {
+          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").ilike("nome", nomeProd).maybeSingle();
+          prod = data;
+        }
+
         let productId: string | null = prod?.id ?? null;
-        let custoUnit = prod ? Number(prod.custo_medio) : 0;
+        const custoUnit = prod ? Number(prod.custo_medio) : 0;
         if (!prod) {
-          const { data: novo } = await sb.from("products").insert({
-            codigo_barras: cb, nome: `[Pendente] ${cb}`, preco_venda: preco, pendente_revisao: true, ativo: true,
+          const { data: novo, error: novoErr } = await sb.from("products").insert({
+            codigo_barras: cb || null,
+            codigo_interno: ci || null,
+            nome: nomeProd || `[Pendente] ${ci || cb}`,
+            preco_venda: preco,
+            pendente_revisao: true,
+            ativo: true,
           }).select("id").single();
+          if (novoErr) throw novoErr;
           productId = novo?.id ?? null;
           semProduto++;
         }
@@ -138,15 +168,15 @@ function ImportarVendas() {
         lucro += lucroBruto;
 
         const { data: saleRow, error: saleErr } = await sb.from("sales").insert({
-          codigo_venda: codVenda, data_venda: dataVenda, forma_pagamento: forma,
+          codigo_venda: codVenda, data_venda: dataVenda, forma_pagamento: forma, operador,
           valor_bruto: valorTot, valor_total: valorTot, custo_total: custoUnit * qtd,
           lucro_bruto: lucroBruto, hash_dedupe: hash, import_batch_id: batchId,
         }).select("id").single();
         if (saleErr) throw saleErr;
 
         await sb.from("sale_items").insert({
-          sale_id: saleRow.id, product_id: productId, codigo_barras: cb,
-          descricao: prod?.nome ?? null, quantidade: qtd, preco_unitario: preco,
+          sale_id: saleRow.id, product_id: productId, codigo_barras: cb || prod?.codigo_barras || null,
+          descricao: prod?.nome ?? nomeProd ?? null, quantidade: qtd, preco_unitario: preco,
           valor_total: valorTot, custo_unitario: custoUnit, lucro: lucroBruto,
         });
 
@@ -171,6 +201,7 @@ function ImportarVendas() {
     qc.invalidateQueries();
     toast.success(`${ok} vendas importadas`);
   }
+
 
   async function undoBatch(id: string) {
     if (!confirm("Desfazer esta importação? Vendas e movimentações de estoque relacionadas serão revertidas.")) return;
