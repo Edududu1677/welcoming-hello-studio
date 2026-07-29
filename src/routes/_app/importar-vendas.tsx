@@ -40,15 +40,17 @@ function ImportarVendas() {
 
   function autoMap(hdrs: string[]) {
     setMapping({
-      data: matchColumn(hdrs, ["data", "data_venda", "data venda", "date", "dt", "dt_venda", "data emissao", "data da venda", "emissao"]) ?? "",
+      data: matchColumn(hdrs, ["data", "data_venda", "data venda", "date", "dt", "dt_venda", "data emissao", "data da venda", "emissao", "data hora", "datahora"]) ?? "",
       hora: matchColumn(hdrs, ["hora", "time", "horario", "hr"]) ?? "",
       codigo_barras: matchColumn(hdrs, ["codigo de barras", "codigo_barras", "cod barras", "cod_barras", "ean", "gtin", "codigo ean", "barras", "cod_ean", "codbarras"]) ?? "",
+      codigo_interno: matchColumn(hdrs, ["codigo do produto", "codigo produto", "codigo_produto", "codigo interno", "codigo_interno", "cod produto", "cod_produto", "codprod", "sku", "codigo", "cod"]) ?? "",
       nome: matchColumn(hdrs, ["produto", "nome", "descricao", "descrição", "nome_produto", "desc_produto", "desc", "item", "mercadoria"]) ?? "",
       quantidade: matchColumn(hdrs, ["quantidade", "qtd", "qtde", "qte", "qt", "quant", "qtd_vendida", "quantidade vendida"]) ?? "",
       preco_unitario: matchColumn(hdrs, ["preco unitario", "preço unitário", "valor unitario", "valor unitário", "preco", "preço", "vlr_unit", "vl_unit", "pr_unit", "preco_unit", "unitario"]) ?? "",
       valor_total: matchColumn(hdrs, ["valor total", "total", "valor", "vlr_total", "vl_total", "total_venda", "valor_venda", "subtotal", "vlr"]) ?? "",
       forma_pagamento: matchColumn(hdrs, ["forma pagamento", "forma de pagamento", "pagamento", "fpagto", "meio_pagamento", "forma_pag", "tipo_pagamento"]) ?? "",
       codigo_venda: matchColumn(hdrs, ["codigo venda", "codigo_venda", "cupom", "numero venda", "transacao", "transação", "num_venda", "nr_venda", "ncupom", "num_cupom", "cupom_fiscal", "id_venda"]) ?? "",
+      operador: matchColumn(hdrs, ["operador", "maquina", "máquina", "cliente", "local", "loja", "vendedor", "caixa", "pdv"]) ?? "",
     });
   }
 
