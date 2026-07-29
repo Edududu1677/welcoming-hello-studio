@@ -25,6 +25,7 @@ import { Route as AppEstoqueRouteImport } from './routes/_app/estoque'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app/configuracoes'
 import { Route as AppComprasRouteImport } from './routes/_app/compras'
+import { Route as AppCategoriasRouteImport } from './routes/_app/categorias'
 import { Route as AppAlertasRouteImport } from './routes/_app/alertas'
 import { Route as AppProdutosIndexRouteImport } from './routes/_app/produtos.index'
 import { Route as AppProdutosNovoRouteImport } from './routes/_app/produtos.novo'
@@ -109,6 +110,11 @@ const AppComprasRoute = AppComprasRouteImport.update({
   path: '/compras',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCategoriasRoute = AppCategoriasRouteImport.update({
+  id: '/categorias',
+  path: '/categorias',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAlertasRoute = AppAlertasRouteImport.update({
   id: '/alertas',
   path: '/alertas',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/alertas': typeof AppAlertasRoute
+  '/categorias': typeof AppCategoriasRoute
   '/compras': typeof AppComprasRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/dashboard': typeof AppDashboardRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/alertas': typeof AppAlertasRoute
+  '/categorias': typeof AppCategoriasRoute
   '/compras': typeof AppComprasRoute
   '/configuracoes': typeof AppConfiguracoesRoute
   '/dashboard': typeof AppDashboardRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_app/alertas': typeof AppAlertasRoute
+  '/_app/categorias': typeof AppCategoriasRoute
   '/_app/compras': typeof AppComprasRoute
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/dashboard': typeof AppDashboardRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/alertas'
+    | '/categorias'
     | '/compras'
     | '/configuracoes'
     | '/dashboard'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/alertas'
+    | '/categorias'
     | '/compras'
     | '/configuracoes'
     | '/dashboard'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/_app/alertas'
+    | '/_app/categorias'
     | '/_app/compras'
     | '/_app/configuracoes'
     | '/_app/dashboard'
@@ -383,6 +395,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppComprasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/categorias': {
+      id: '/_app/categorias'
+      path: '/categorias'
+      fullPath: '/categorias'
+      preLoaderRoute: typeof AppCategoriasRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/alertas': {
       id: '/_app/alertas'
       path: '/alertas'
@@ -416,6 +435,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAlertasRoute: typeof AppAlertasRoute
+  AppCategoriasRoute: typeof AppCategoriasRoute
   AppComprasRoute: typeof AppComprasRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppDashboardRoute: typeof AppDashboardRoute
@@ -435,6 +455,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAlertasRoute: AppAlertasRoute,
+  AppCategoriasRoute: AppCategoriasRoute,
   AppComprasRoute: AppComprasRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppDashboardRoute: AppDashboardRoute,
