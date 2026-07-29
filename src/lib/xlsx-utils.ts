@@ -4,9 +4,71 @@ export async function readSpreadsheet(file: File): Promise<{ headers: string[]; 
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array", cellDates: true });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { raw: false, defval: "" });
-  const headers = rows.length ? Object.keys(rows[0]) : [];
+  // Read as matrix so we can detect the header row (some PDV exports have title/blank rows at top)
+  const matrix = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: false, defval: "" });
+  return matrixToRows(matrix);
+}
+
+function matrixToRows(matrix: any[][]): { headers: string[]; rows: Record<string, any>[] } {
+  // find first row with 2+ non-empty cells and mostly text -> header row
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(matrix.length, 15); i++) {
+    const row = matrix[i] ?? [];
+    const nonEmpty = row.filter((c) => String(c ?? "").trim() !== "");
+    if (nonEmpty.length >= 2) { headerIdx = i; break; }
+  }
+  const rawHeaders = (matrix[headerIdx] ?? []).map((h, i) => {
+    const s = String(h ?? "").trim();
+    return s || `col_${i + 1}`;
+  });
+  // dedupe headers
+  const seen = new Map<string, number>();
+  const headers = rawHeaders.map((h) => {
+    const n = (seen.get(h) ?? 0) + 1;
+    seen.set(h, n);
+    return n === 1 ? h : `${h} (${n})`;
+  });
+  const rows: Record<string, any>[] = [];
+  for (let i = headerIdx + 1; i < matrix.length; i++) {
+    const row = matrix[i] ?? [];
+    if (row.every((c) => String(c ?? "").trim() === "")) continue;
+    const obj: Record<string, any> = {};
+    headers.forEach((h, j) => (obj[h] = row[j] ?? ""));
+    rows.push(obj);
+  }
   return { headers, rows };
+}
+
+export function parsePastedData(text: string): { headers: string[]; rows: Record<string, any>[] } {
+  const cleaned = text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+  if (!cleaned.trim()) return { headers: [], rows: [] };
+  const lines = cleaned.split("\n");
+  // detect delimiter: prefer tab (Excel copy), then ;, then ,
+  const first = lines[0];
+  const delim = first.includes("\t") ? "\t" : first.includes(";") ? ";" : ",";
+  const matrix = lines.map((l) => splitDelim(l, delim));
+  return matrixToRows(matrix);
+}
+
+function splitDelim(line: string, delim: string): string[] {
+  if (delim === "\t") return line.split("\t");
+  // simple CSV parser with quotes
+  const out: string[] = [];
+  let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') inQ = false;
+      else cur += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === delim) { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
 }
 
 export function downloadXLSX(filename: string, rows: Record<string, any>[]) {

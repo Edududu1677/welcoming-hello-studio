@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMemo, useState } from "react";
-import { readSpreadsheet, downloadXLSX, matchColumn } from "@/lib/xlsx-utils";
+import { readSpreadsheet, downloadXLSX, matchColumn, parsePastedData } from "@/lib/xlsx-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, num, formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
-import { Download, Upload, CheckCircle2, AlertCircle, Undo2 } from "lucide-react";
+import { Download, Upload, CheckCircle2, AlertCircle, Undo2, ClipboardPaste } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -30,28 +31,44 @@ function ImportarVendas() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<any>(null);
+  const [pasted, setPasted] = useState("");
 
   const { data: batches } = useQuery({
     queryKey: ["import-batches-vendas"],
     queryFn: async () => (await sb.from("import_batches").select("id, arquivo_nome, status, registros_total, registros_ok, registros_erro, registros_duplicados, created_at").eq("tipo", "vendas").order("created_at", { ascending: false }).limit(20)).data ?? [],
   });
 
+  function autoMap(hdrs: string[]) {
+    setMapping({
+      data: matchColumn(hdrs, ["data", "data_venda", "data venda", "date", "dt", "dt_venda", "data emissao", "data da venda", "emissao"]) ?? "",
+      hora: matchColumn(hdrs, ["hora", "time", "horario", "hr"]) ?? "",
+      codigo_barras: matchColumn(hdrs, ["codigo de barras", "codigo_barras", "cod barras", "cod_barras", "ean", "gtin", "codigo ean", "barras", "cod_ean", "codbarras"]) ?? "",
+      nome: matchColumn(hdrs, ["produto", "nome", "descricao", "descrição", "nome_produto", "desc_produto", "desc", "item", "mercadoria"]) ?? "",
+      quantidade: matchColumn(hdrs, ["quantidade", "qtd", "qtde", "qte", "qt", "quant", "qtd_vendida", "quantidade vendida"]) ?? "",
+      preco_unitario: matchColumn(hdrs, ["preco unitario", "preço unitário", "valor unitario", "valor unitário", "preco", "preço", "vlr_unit", "vl_unit", "pr_unit", "preco_unit", "unitario"]) ?? "",
+      valor_total: matchColumn(hdrs, ["valor total", "total", "valor", "vlr_total", "vl_total", "total_venda", "valor_venda", "subtotal", "vlr"]) ?? "",
+      forma_pagamento: matchColumn(hdrs, ["forma pagamento", "forma de pagamento", "pagamento", "fpagto", "meio_pagamento", "forma_pag", "tipo_pagamento"]) ?? "",
+      codigo_venda: matchColumn(hdrs, ["codigo venda", "codigo_venda", "cupom", "numero venda", "transacao", "transação", "num_venda", "nr_venda", "ncupom", "num_cupom", "cupom_fiscal", "id_venda"]) ?? "",
+    });
+  }
+
   async function handleFile(f: File) {
     try {
       const { headers, rows } = await readSpreadsheet(f);
       setHeaders(headers); setRows(rows); setReport(null); setFileName(f.name);
-      setMapping({
-        data: matchColumn(headers, ["data", "data_venda", "data venda", "date"]) ?? "",
-        hora: matchColumn(headers, ["hora", "time"]) ?? "",
-        codigo_barras: matchColumn(headers, ["codigo de barras", "codigo_barras", "ean", "gtin", "cod barras"]) ?? "",
-        nome: matchColumn(headers, ["produto", "nome", "descricao", "descrição"]) ?? "",
-        quantidade: matchColumn(headers, ["quantidade", "qtd", "qtde"]) ?? "",
-        preco_unitario: matchColumn(headers, ["preco unitario", "preço unitário", "valor unitario", "valor unitário", "preco", "preço"]) ?? "",
-        valor_total: matchColumn(headers, ["valor total", "total", "valor"]) ?? "",
-        forma_pagamento: matchColumn(headers, ["forma pagamento", "forma de pagamento", "pagamento"]) ?? "",
-        codigo_venda: matchColumn(headers, ["codigo venda", "codigo_venda", "cupom", "numero venda", "transacao", "transação"]) ?? "",
-      });
+      autoMap(headers);
+      if (!rows.length) toast.warning("Nenhuma linha detectada no arquivo");
     } catch (e: any) { toast.error("Erro ao ler: " + e.message); }
+  }
+
+  function handlePaste() {
+    try {
+      const { headers, rows } = parsePastedData(pasted);
+      if (!rows.length) return toast.error("Nada para importar. Cole com a primeira linha sendo os títulos das colunas.");
+      setHeaders(headers); setRows(rows); setReport(null); setFileName("(colado)");
+      autoMap(headers);
+      toast.success(`${rows.length} linhas carregadas`);
+    } catch (e: any) { toast.error("Erro ao processar: " + e.message); }
   }
 
   const preview = useMemo(() => rows.slice(0, 5), [rows]);
@@ -190,6 +207,20 @@ function ImportarVendas() {
       <Card>
         <CardHeader><CardTitle>Arquivo</CardTitle></CardHeader>
         <CardContent><Input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files && handleFile(e.target.files[0])} /></CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ClipboardPaste className="h-4 w-4" />Colar dados</CardTitle>
+          <p className="text-xs text-muted-foreground">Copie do Excel/Google Sheets e cole aqui. A 1ª linha deve conter os títulos das colunas. Aceita TAB, ponto-e-vírgula ou vírgula.</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Textarea rows={6} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="data	hora	codigo_barras	produto	quantidade	preco_unitario	valor_total&#10;24/07/2026	10:15	7891234567890	Arroz 5kg	1	29,90	29,90" className="font-mono text-xs" />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setPasted("")}>Limpar</Button>
+            <Button size="sm" onClick={handlePaste} disabled={!pasted.trim()}><ClipboardPaste className="h-4 w-4 mr-2" />Processar colagem</Button>
+          </div>
+        </CardContent>
       </Card>
 
       {headers.length > 0 && (
