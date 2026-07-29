@@ -31,6 +31,7 @@ function ImportarVendas() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<any>(null);
+  const [pasted, setPasted] = useState("");
 
   const { data: batches } = useQuery({
     queryKey: ["import-batches-vendas"],
