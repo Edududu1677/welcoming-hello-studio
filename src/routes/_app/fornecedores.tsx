@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/fornecedores")({
   component: Fornecedores,
@@ -42,6 +42,14 @@ function Fornecedores() {
     setOpen(false); qc.invalidateQueries({ queryKey: ["suppliers"] });
   }
 
+  async function remove(s: any) {
+    if (!confirm(`Excluir fornecedor "${s.razao_social}"?`)) return;
+    const { error } = await sb.from("suppliers").delete().eq("id", s.id);
+    if (error) return toast.error(error.message);
+    toast.success("Fornecedor excluído");
+    qc.invalidateQueries({ queryKey: ["suppliers"] });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -62,7 +70,10 @@ function Fornecedores() {
                   <TableCell>{s.telefone ?? "—"}</TableCell>
                   <TableCell>{s.vendedor ?? "—"}</TableCell>
                   <TableCell>{s.prazo_entrega_dias ? `${s.prazo_entrega_dias} dias` : "—"}</TableCell>
-                  <TableCell><Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Edit className="h-3 w-3" /></Button></TableCell>
+                  <TableCell className="space-x-1 whitespace-nowrap">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(s)}><Edit className="h-3 w-3" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => remove(s)}><Trash2 className="h-3 w-3 text-red-600" /></Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
