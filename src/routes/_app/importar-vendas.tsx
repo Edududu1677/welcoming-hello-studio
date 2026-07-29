@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMemo, useState } from "react";
-import { readSpreadsheet, downloadXLSX, matchColumn } from "@/lib/xlsx-utils";
+import { readSpreadsheet, downloadXLSX, matchColumn, parsePastedData } from "@/lib/xlsx-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { brl, num, formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
-import { Download, Upload, CheckCircle2, AlertCircle, Undo2 } from "lucide-react";
+import { Download, Upload, CheckCircle2, AlertCircle, Undo2, ClipboardPaste } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
