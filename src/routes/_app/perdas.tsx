@@ -32,7 +32,7 @@ function Perdas() {
 
   const { data: losses } = useQuery({
     queryKey: ["losses"],
-    queryFn: async () => (await sb.from("losses").select("id, tipo, quantidade, valor_total, motivo, data_evento, products:product_id(nome, codigo_barras)").order("created_at", { ascending: false }).limit(100)).data ?? [],
+    queryFn: async () => (await sb.from("losses").select("id, product_id, tipo, quantidade, valor_total, custo_unitario, motivo, data_evento, products:product_id(nome, codigo_barras)").order("created_at", { ascending: false }).limit(100)).data ?? [],
   });
   const { data: prods } = useQuery({ queryKey: ["products-lite"], queryFn: async () => (await sb.from("products").select("id, nome, codigo_barras, estoque_atual, custo_medio").order("nome").limit(500)).data ?? [] });
 
