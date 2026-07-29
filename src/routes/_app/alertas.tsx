@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, AlertCircle, Info, Check } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/alertas")({
@@ -46,13 +46,28 @@ function Alertas() {
     qc.invalidateQueries({ queryKey: ["alerts"] });
   }
 
+  async function removeAlert(id: string) {
+    await sb.from("alerts").delete().eq("id", id);
+    qc.invalidateQueries({ queryKey: ["alerts"] });
+  }
+
+  async function clearResolved() {
+    if (!confirm("Excluir todos os alertas resolvidos e ignorados?")) return;
+    await sb.from("alerts").delete().in("status", ["resolvido", "ignorado"]);
+    toast.success("Alertas limpos");
+    qc.invalidateQueries({ queryKey: ["alerts"] });
+  }
+
   const icon = (sev: string) => sev === "erro" ? <AlertCircle className="h-4 w-4 text-red-600" /> : sev === "aviso" ? <AlertTriangle className="h-4 w-4 text-yellow-600" /> : <Info className="h-4 w-4 text-blue-600" />;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold">Alertas</h1><p className="text-sm text-muted-foreground">{data?.filter((a: any) => a.status === "novo").length ?? 0} novos</p></div>
-        <Button variant="outline" onClick={generateAlerts}>Verificar agora</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={clearResolved}>Limpar resolvidos</Button>
+          <Button variant="outline" onClick={generateAlerts}>Verificar agora</Button>
+        </div>
       </div>
       <Card>
         <CardContent className="p-0 overflow-x-auto">
@@ -67,9 +82,10 @@ function Alertas() {
                   <TableCell>{a.titulo}</TableCell>
                   <TableCell className="text-xs">{formatDateTime(a.created_at)}</TableCell>
                   <TableCell><Badge variant={a.status === "novo" ? "default" : "outline"}>{a.status}</Badge></TableCell>
-                  <TableCell className="space-x-1">
+                  <TableCell className="space-x-1 whitespace-nowrap">
                     {a.status === "novo" && <Button size="sm" variant="ghost" onClick={() => markStatus(a.id, "visualizado")}>Visto</Button>}
                     <Button size="sm" variant="ghost" onClick={() => markStatus(a.id, "resolvido")}><Check className="h-3 w-3" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => removeAlert(a.id)}><Trash2 className="h-3 w-3 text-red-600" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
