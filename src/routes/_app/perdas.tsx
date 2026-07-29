@@ -56,6 +56,19 @@ function Perdas() {
     qc.invalidateQueries();
   }
 
+  async function remove(l: any) {
+    if (!confirm(`Excluir esta perda? O estoque será devolvido em ${num(l.quantidade)} unidades.`)) return;
+    const { error: mErr } = await sb.rpc("apply_stock_movement", {
+      _product_id: l.product_id, _tipo: "ajuste", _quantidade: Math.abs(Number(l.quantidade)),
+      _custo: l.custo_unitario, _motivo: `Reversão de perda: ${l.motivo ?? ""}`, _documento_ref: l.id,
+    });
+    if (mErr) return toast.error(mErr.message);
+    const { error } = await sb.from("losses").delete().eq("id", l.id);
+    if (error) return toast.error(error.message);
+    toast.success("Perda excluída e estoque revertido");
+    qc.invalidateQueries();
+  }
+
   const totalPerdas = losses?.reduce((a: number, x: any) => a + Number(x.valor_total || 0), 0) ?? 0;
 
   return (
@@ -95,9 +108,9 @@ function Perdas() {
       <Card>
         <CardContent className="p-0 overflow-x-auto">
           <Table>
-            <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Produto</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Qtd</TableHead><TableHead className="text-right">Valor</TableHead><TableHead>Motivo</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Produto</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Qtd</TableHead><TableHead className="text-right">Valor</TableHead><TableHead>Motivo</TableHead><TableHead></TableHead></TableRow></TableHeader>
             <TableBody>
-              {(!losses || losses.length === 0) && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma perda registrada</TableCell></TableRow>}
+              {(!losses || losses.length === 0) && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma perda registrada</TableCell></TableRow>}
               {losses?.map((l: any) => (
                 <TableRow key={l.id}>
                   <TableCell>{formatDate(l.data_evento)}</TableCell>
@@ -106,6 +119,7 @@ function Perdas() {
                   <TableCell className="text-right">{num(l.quantidade)}</TableCell>
                   <TableCell className="text-right text-red-600 font-medium">{brl(l.valor_total)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{l.motivo}</TableCell>
+                  <TableCell><Button size="sm" variant="ghost" onClick={() => remove(l)}>Excluir</Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>
