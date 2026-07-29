@@ -260,7 +260,7 @@ function ImportarVendas() {
         <Card>
           <CardHeader><CardTitle>Mapeamento</CardTitle></CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
-            {["data", "hora", "codigo_barras", "nome", "quantidade", "preco_unitario", "valor_total", "forma_pagamento", "codigo_venda"].map((f) => (
+            {["data", "hora", "codigo_barras", "codigo_interno", "nome", "quantidade", "preco_unitario", "valor_total", "forma_pagamento", "codigo_venda", "operador"].map((f) => (
               <div key={f}><Label className="capitalize">{f.replace(/_/g, " ")}</Label>
                 <Select value={mapping[f] || "none"} onValueChange={(v) => setMapping({ ...mapping, [f]: v === "none" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
