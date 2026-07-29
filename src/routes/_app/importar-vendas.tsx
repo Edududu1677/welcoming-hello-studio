@@ -209,6 +209,20 @@ function ImportarVendas() {
         <CardContent><Input type="file" accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files && handleFile(e.target.files[0])} /></CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ClipboardPaste className="h-4 w-4" />Colar dados</CardTitle>
+          <p className="text-xs text-muted-foreground">Copie do Excel/Google Sheets e cole aqui. A 1ª linha deve conter os títulos das colunas. Aceita TAB, ponto-e-vírgula ou vírgula.</p>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Textarea rows={6} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder="data	hora	codigo_barras	produto	quantidade	preco_unitario	valor_total&#10;24/07/2026	10:15	7891234567890	Arroz 5kg	1	29,90	29,90" className="font-mono text-xs" />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setPasted("")}>Limpar</Button>
+            <Button size="sm" onClick={handlePaste} disabled={!pasted.trim()}><ClipboardPaste className="h-4 w-4 mr-2" />Processar colagem</Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {headers.length > 0 && (
         <Card>
           <CardHeader><CardTitle>Mapeamento</CardTitle></CardHeader>
