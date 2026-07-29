@@ -3,14 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMemo, useState } from "react";
-import { readSpreadsheet, downloadXLSX, matchColumn } from "@/lib/xlsx-utils";
+import { readSpreadsheet, downloadXLSX, matchColumn, parsePastedData } from "@/lib/xlsx-utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Download, Upload, CheckCircle2, AlertCircle } from "lucide-react";
+import { Download, Upload, CheckCircle2, AlertCircle, ClipboardPaste } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/_app/importar-estoque")({
@@ -25,6 +26,23 @@ const TIPO_MAP: Record<string, string> = {
   adicionar: "estoque_somar",
 };
 
+const FIELDS = ["codigo_barras", "codigo_interno", "nome", "quantidade", "custo", "preco_venda", "estoque_minimo", "categoria", "marca", "unidade_medida"] as const;
+
+function autoMap(headers: string[]): Record<string, string> {
+  return {
+    codigo_barras: matchColumn(headers, ["codigo de barras","codigo_barras","ean","gtin","cod barras","cod. barras","barras","codbarras"]) ?? "",
+    codigo_interno: matchColumn(headers, ["codigo interno","codigo_interno","codigo","cod interno","sku","cod produto","codigo do produto","código do produto","cod","referencia","ref"]) ?? "",
+    nome: matchColumn(headers, ["nome","produto","descricao","descrição","descricao produto","item","nome do produto"]) ?? "",
+    quantidade: matchColumn(headers, ["quantidade","qtd","qtde","estoque","saldo","estoque atual"]) ?? "",
+    custo: matchColumn(headers, ["custo","preco custo","preço custo","valor custo","custo unitario","custo médio"]) ?? "",
+    preco_venda: matchColumn(headers, ["preco","preço","preco venda","preço venda","valor","preco de venda","preço de venda","valor venda"]) ?? "",
+    estoque_minimo: matchColumn(headers, ["estoque minimo","estoque mínimo","min","minimo","mínimo","est min"]) ?? "",
+    categoria: matchColumn(headers, ["categoria","grupo","departamento"]) ?? "",
+    marca: matchColumn(headers, ["marca","fabricante"]) ?? "",
+    unidade_medida: matchColumn(headers, ["unidade","unidade de medida","un","um","unid"]) ?? "",
+  };
+}
+
 function ImportarEstoque() {
   const { user } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
@@ -34,29 +52,34 @@ function ImportarEstoque() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<{ ok: number; novos: number; erros: string[] } | null>(null);
+  const [pasted, setPasted] = useState("");
 
   async function handleFile(f: File) {
     try {
       const { headers, rows } = await readSpreadsheet(f);
       setHeaders(headers); setRows(rows); setReport(null); setFileName(f.name);
-      setMapping({
-        codigo_barras: matchColumn(headers, ["codigo de barras", "codigo_barras", "ean", "gtin", "cod barras", "cod. barras"]) ?? "",
-        nome: matchColumn(headers, ["nome", "produto", "descricao", "descrição"]) ?? "",
-        quantidade: matchColumn(headers, ["quantidade", "qtd", "estoque"]) ?? "",
-        custo: matchColumn(headers, ["custo", "preco custo", "preço custo", "valor custo"]) ?? "",
-        preco_venda: matchColumn(headers, ["preco", "preço", "preco venda", "preço venda", "valor"]) ?? "",
-        categoria: matchColumn(headers, ["categoria"]) ?? "",
-        estoque_minimo: matchColumn(headers, ["estoque minimo", "estoque mínimo", "min", "minimo"]) ?? "",
-      });
+      setMapping(autoMap(headers));
     } catch (e: any) { toast.error("Erro ao ler arquivo: " + e.message); }
+  }
+
+  function handlePaste() {
+    try {
+      const { headers, rows } = parsePastedData(pasted);
+      if (!rows.length) return toast.error("Nada para processar");
+      setHeaders(headers); setRows(rows); setReport(null); setFileName("colagem");
+      setMapping(autoMap(headers));
+      toast.success(`${rows.length} linhas processadas`);
+    } catch (e: any) { toast.error("Erro: " + e.message); }
   }
 
   const preview = useMemo(() => rows.slice(0, 5), [rows]);
   const sb: any = supabase;
 
+  const num = (v: any) => Number(String(v ?? "0").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "")) || 0;
+
   async function runImport() {
     if (!rows.length) return toast.error("Nenhum dado carregado");
-    if (!mapping.codigo_barras && !mapping.nome) return toast.error("Mapeie ao menos código de barras ou nome");
+    if (!mapping.codigo_barras && !mapping.codigo_interno && !mapping.nome) return toast.error("Mapeie ao menos código de barras, código interno ou nome");
     setImporting(true);
     const erros: string[] = [];
     let ok = 0, novos = 0;
@@ -73,13 +96,16 @@ function ImportarEstoque() {
     for (const r of rows) {
       try {
         const cb = mapping.codigo_barras ? String(r[mapping.codigo_barras] ?? "").trim() : "";
+        const ci = mapping.codigo_interno ? String(r[mapping.codigo_interno] ?? "").trim() : "";
         const nome = mapping.nome ? String(r[mapping.nome] ?? "").trim() : "";
-        if (!cb && !nome) { erros.push("Linha sem código nem nome"); continue; }
-        const qtd = mapping.quantidade ? Number(String(r[mapping.quantidade] ?? "0").replace(",", ".")) : 0;
-        const custo = mapping.custo ? Number(String(r[mapping.custo] ?? "0").replace(",", ".")) : 0;
-        const preco = mapping.preco_venda ? Number(String(r[mapping.preco_venda] ?? "0").replace(",", ".")) : 0;
-        const estMin = mapping.estoque_minimo ? Number(String(r[mapping.estoque_minimo] ?? "0").replace(",", ".")) : 0;
+        if (!cb && !ci && !nome) { erros.push("Linha sem código nem nome"); continue; }
+        const qtd = mapping.quantidade ? num(r[mapping.quantidade]) : 0;
+        const custo = mapping.custo ? num(r[mapping.custo]) : 0;
+        const preco = mapping.preco_venda ? num(r[mapping.preco_venda]) : 0;
+        const estMin = mapping.estoque_minimo ? num(r[mapping.estoque_minimo]) : 0;
         const catNome = mapping.categoria ? String(r[mapping.categoria] ?? "").trim() : "";
+        const marca = mapping.marca ? String(r[mapping.marca] ?? "").trim() : "";
+        const un = mapping.unidade_medida ? String(r[mapping.unidade_medida] ?? "").trim() : "";
         let catId: string | null = null;
         if (catNome) {
           catId = catMap.get(catNome.toLowerCase()) ?? null;
@@ -94,6 +120,10 @@ function ImportarEstoque() {
           const { data } = await sb.from("products").select("id, estoque_atual").eq("codigo_barras", cb).maybeSingle();
           prod = data;
         }
+        if (!prod && ci) {
+          const { data } = await sb.from("products").select("id, estoque_atual").eq("codigo_interno", ci).maybeSingle();
+          prod = data;
+        }
         if (!prod && nome) {
           const { data } = await sb.from("products").select("id, estoque_atual").eq("nome", nome).maybeSingle();
           prod = data;
@@ -101,7 +131,11 @@ function ImportarEstoque() {
 
         if (!prod) {
           const payload: any = {
-            codigo_barras: cb || null, nome: nome || `Produto ${cb}`,
+            codigo_barras: cb || null,
+            codigo_interno: ci || null,
+            nome: nome || `Produto ${cb || ci}`,
+            marca: marca || null,
+            unidade_medida: un || "un",
             custo_medio: custo, custo_ultima_compra: custo, preco_venda: preco,
             estoque_atual: 0, estoque_minimo: estMin, categoria_id: catId,
           };
@@ -129,6 +163,10 @@ function ImportarEstoque() {
           if (preco > 0) update.preco_venda = preco;
           if (estMin > 0) update.estoque_minimo = estMin;
           if (catId) update.categoria_id = catId;
+          if (ci) update.codigo_interno = ci;
+          if (cb) update.codigo_barras = cb;
+          if (marca) update.marca = marca;
+          if (un) update.unidade_medida = un;
           if (Object.keys(update).length) await sb.from("products").update(update).eq("id", prod.id);
         }
         ok++;
@@ -147,15 +185,15 @@ function ImportarEstoque() {
 
   function downloadModelo() {
     downloadXLSX("modelo_estoque.xlsx", [
-      { codigo_barras: "7891234567890", nome: "Arroz 5kg", categoria: "Alimentos", quantidade: 20, custo: 22.50, preco_venda: 29.90, estoque_minimo: 5 },
-      { codigo_barras: "7891234567891", nome: "Feijão 1kg", categoria: "Alimentos", quantidade: 30, custo: 6.80, preco_venda: 8.99, estoque_minimo: 10 },
+      { codigo_barras: "7891234567890", codigo_interno: "PA143", nome: "Arroz 5kg", categoria: "Alimentos", marca: "Tio João", unidade_medida: "un", quantidade: 20, custo: 22.50, preco_venda: 29.90, estoque_minimo: 5 },
+      { codigo_barras: "7891234567891", codigo_interno: "HA004", nome: "Feijão 1kg", categoria: "Alimentos", marca: "Camil", unidade_medida: "un", quantidade: 30, custo: 6.80, preco_venda: 8.99, estoque_minimo: 10 },
     ]);
   }
 
   return (
     <div className="space-y-4 max-w-5xl">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div><h1 className="text-2xl font-bold">Importar estoque</h1><p className="text-sm text-muted-foreground">Envie um XLSX ou CSV com seus produtos</p></div>
+        <div><h1 className="text-2xl font-bold">Importar estoque / produtos</h1><p className="text-sm text-muted-foreground">Envie um XLSX/CSV ou cole os dados diretamente</p></div>
         <Button variant="outline" onClick={downloadModelo}><Download className="h-4 w-4 mr-2" />Baixar modelo</Button>
       </div>
 
@@ -177,11 +215,19 @@ function ImportarEstoque() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader><CardTitle>Ou cole os dados (copiar do Excel/Sheets)</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <Textarea rows={6} placeholder="Cole aqui as linhas copiadas com cabeçalho na primeira linha..." value={pasted} onChange={(e) => setPasted(e.target.value)} />
+          <Button variant="secondary" onClick={handlePaste}><ClipboardPaste className="h-4 w-4 mr-2" />Processar colagem</Button>
+        </CardContent>
+      </Card>
+
       {headers.length > 0 && (
         <Card>
           <CardHeader><CardTitle>2. Mapeamento das colunas</CardTitle></CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
-            {["codigo_barras", "nome", "quantidade", "custo", "preco_venda", "estoque_minimo", "categoria"].map((f) => (
+            {FIELDS.map((f) => (
               <div key={f}><Label className="capitalize">{f.replace(/_/g, " ")}</Label>
                 <Select value={mapping[f] || "none"} onValueChange={(v) => setMapping({ ...mapping, [f]: v === "none" ? "" : v })}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
