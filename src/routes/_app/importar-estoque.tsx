@@ -74,6 +74,7 @@ function ImportarEstoque() {
   }
 
   const preview = useMemo(() => rows.slice(0, 5), [rows]);
+  const { storeId } = useStore();
   const sb: any = supabase;
 
   const num = (v: any) => Number(String(v ?? "0").replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "")) || 0;

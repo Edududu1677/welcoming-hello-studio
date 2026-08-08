@@ -25,6 +25,7 @@ export const Route = createFileRoute("/_app/importar-vendas")({
 function ImportarVendas() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { storeId } = useStore();
   const sb: any = supabase;
   const [rows, setRows] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
