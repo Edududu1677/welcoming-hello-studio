@@ -24,7 +24,7 @@ const menu = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/categorias", label: "Categorias", icon: Tags },
-  { to: "/precos", label: "Preços e margem", icon: Tags },
+  { to: "/precos", label: "Preços e margem", icon: Calculator },
   { to: "/estoque", label: "Estoque", icon: Warehouse },
 
   { to: "/importar-estoque", label: "Importar estoque", icon: FileUp },
