@@ -70,8 +70,8 @@ function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Visão geral dos últimos 30 dias.</p>
+        <h1 className="text-2xl font-bold">Dashboard — {store?.nome ?? "Mercado"}</h1>
+        <p className="text-sm text-muted-foreground">Visão geral dos últimos 30 dias deste mercado.</p>
       </div>
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {cards.map((c) => (
