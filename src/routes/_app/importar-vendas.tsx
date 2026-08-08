@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useMemo, useState } from "react";
 import { readSpreadsheet, downloadXLSX, matchColumn, parsePastedData } from "@/lib/xlsx-utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { brl, num, formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
 import { Download, Upload, CheckCircle2, AlertCircle, Undo2, ClipboardPaste } from "lucide-react";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_app/importar-vendas")({
 function ImportarVendas() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { storeId } = useStore();
   const sb: any = supabase;
   const [rows, setRows] = useState<any[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -129,21 +131,21 @@ function ImportarVendas() {
         const operador = mapping.operador ? String(r[mapping.operador] ?? "") : null;
 
         const hash = `${codVenda ?? ""}|${cb || ci || nomeProd}|${qtd}|${valorTot}|${dataVenda}`;
-        const { data: dup } = await sb.from("sales").select("id").eq("hash_dedupe", hash).maybeSingle();
+        const { data: dup } = await sb.from("sales").select("id").eq("hash_dedupe", hash).eq("store_id", storeId!).maybeSingle();
         if (dup) { duplicados++; continue; }
 
         // Look up product: by barcode, internal code, or name
         let prod: any = null;
         if (cb) {
-          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").eq("codigo_barras", cb).maybeSingle();
+          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").eq("codigo_barras", cb).eq("store_id", storeId!).maybeSingle();
           prod = data;
         }
         if (!prod && ci) {
-          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").eq("codigo_interno", ci).maybeSingle();
+          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").eq("codigo_interno", ci).eq("store_id", storeId!).maybeSingle();
           prod = data;
         }
         if (!prod && nomeProd) {
-          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").ilike("nome", nomeProd).maybeSingle();
+          const { data } = await sb.from("products").select("id, custo_medio, nome, codigo_barras").ilike("nome", nomeProd).eq("store_id", storeId!).maybeSingle();
           prod = data;
         }
 
@@ -157,6 +159,7 @@ function ImportarVendas() {
             preco_venda: preco,
             pendente_revisao: true,
             ativo: true,
+            store_id: storeId,
           }).select("id").single();
           if (novoErr) throw novoErr;
           productId = novo?.id ?? null;
@@ -170,7 +173,7 @@ function ImportarVendas() {
         const { data: saleRow, error: saleErr } = await sb.from("sales").insert({
           codigo_venda: codVenda, data_venda: dataVenda, forma_pagamento: forma, operador,
           valor_bruto: valorTot, valor_total: valorTot, custo_total: custoUnit * qtd,
-          lucro_bruto: lucroBruto, hash_dedupe: hash, import_batch_id: batchId,
+          lucro_bruto: lucroBruto, hash_dedupe: hash, import_batch_id: batchId, store_id: storeId,
         }).select("id").single();
         if (saleErr) throw saleErr;
 

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { useState } from "react";
 import { toast } from "sonner";
 import { brl, num, formatDateTime } from "@/lib/format";
@@ -18,22 +19,23 @@ export const Route = createFileRoute("/_app/inventario")({
 function Inventario() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { storeId } = useStore();
   const sb: any = supabase;
   const [current, setCurrent] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [q, setQ] = useState("");
 
   const { data: inventarios } = useQuery({
-    queryKey: ["inventories"],
-    queryFn: async () => (await sb.from("inventories").select("*").order("aberto_em", { ascending: false }).limit(50)).data ?? [],
+    queryKey: ["inventories", storeId],
+    queryFn: async () => (await sb.from("inventories").select("*").eq("store_id", storeId!).order("aberto_em", { ascending: false }).limit(50)).data ?? [],
   });
 
   async function abrir() {
     const desc = prompt("Descrição do inventário:", `Inventário ${new Date().toLocaleDateString("pt-BR")}`);
     if (!desc) return;
-    const { data: inv } = await sb.from("inventories").insert({ descricao: desc, escopo: "completo", user_id: user?.id }).select("*").single();
+    const { data: inv } = await sb.from("inventories").insert({ descricao: desc, escopo: "completo", user_id: user?.id, store_id: storeId }).select("*").single();
     if (!inv) return toast.error("Erro");
-    const { data: prods } = await sb.from("products").select("id, nome, codigo_barras, estoque_atual, custo_medio").eq("ativo", true);
+    const { data: prods } = await sb.from("products").select("id, nome, codigo_barras, estoque_atual, custo_medio").eq("ativo", true).eq("store_id", storeId!);
     const rows = (prods ?? []).map((p: any) => ({ product_id: p.id, nome: p.nome, codigo_barras: p.codigo_barras, quantidade_sistema: p.estoque_atual, quantidade_contada: null, custo_medio: p.custo_medio }));
     if (rows.length) await sb.from("inventory_items").insert(rows.map((r: any) => ({ inventory_id: inv.id, product_id: r.product_id, quantidade_sistema: r.quantidade_sistema })));
     setCurrent(inv);

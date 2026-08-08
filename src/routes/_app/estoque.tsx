@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/_app/estoque")({
 });
 
 function EstoquePage() {
+  const { storeId } = useStore();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [product, setProduct] = useState<string>("");
@@ -27,10 +29,10 @@ function EstoquePage() {
   const [motivo, setMotivo] = useState("");
 
   const { data: mov } = useQuery({
-    queryKey: ["stock-movements"],
-    queryFn: async () => (await supabase.from("stock_movements").select("id, tipo, quantidade, estoque_anterior, estoque_posterior, motivo, created_at, products:product_id(nome, codigo_barras)").order("created_at", { ascending: false }).limit(200)).data ?? [],
+    queryKey: ["stock-movements", storeId],
+    queryFn: async () => (await supabase.from("stock_movements").select("id, tipo, quantidade, estoque_anterior, estoque_posterior, motivo, created_at, products:product_id(nome, codigo_barras)").eq("store_id", storeId!).order("created_at", { ascending: false }).limit(200)).data ?? [],
   });
-  const { data: prods } = useQuery({ queryKey: ["products-lite"], queryFn: async () => (await supabase.from("products").select("id, nome, codigo_barras, estoque_atual").order("nome").limit(500)).data ?? [] });
+  const { data: prods } = useQuery({ queryKey: ["products-lite", storeId], queryFn: async () => (await supabase.from("products").select("id, nome, codigo_barras, estoque_atual").eq("store_id", storeId!).order("nome").limit(500)).data ?? [] });
 
   async function apply() {
     if (!product) return toast.error("Selecione o produto");
@@ -41,7 +43,7 @@ function EstoquePage() {
     if (error) return toast.error(error.message);
     toast.success("Movimentação registrada");
     setOpen(false); setProduct(""); setQuantidade(0); setMotivo(""); setTipo("ajuste");
-    qc.invalidateQueries({ queryKey: ["stock-movements"] });
+    qc.invalidateQueries({ queryKey: ["stock-movements", storeId] });
     qc.invalidateQueries({ queryKey: ["products"] });
   }
 

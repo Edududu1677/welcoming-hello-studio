@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { useState } from "react";
 import { toast } from "sonner";
 import { brl, num, formatDate } from "@/lib/format";
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/_app/perdas")({
 function Perdas() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { storeId } = useStore();
   const sb: any = supabase;
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState("");
@@ -31,10 +33,10 @@ function Perdas() {
   const [obs, setObs] = useState("");
 
   const { data: losses } = useQuery({
-    queryKey: ["losses"],
-    queryFn: async () => (await sb.from("losses").select("id, product_id, tipo, quantidade, valor_total, custo_unitario, motivo, data_evento, products:product_id(nome, codigo_barras)").order("created_at", { ascending: false }).limit(100)).data ?? [],
+    queryKey: ["losses", storeId],
+    queryFn: async () => (await sb.from("losses").select("id, product_id, tipo, quantidade, valor_total, custo_unitario, motivo, data_evento, products:product_id(nome, codigo_barras)").eq("store_id", storeId!).order("created_at", { ascending: false }).limit(100)).data ?? [],
   });
-  const { data: prods } = useQuery({ queryKey: ["products-lite"], queryFn: async () => (await sb.from("products").select("id, nome, codigo_barras, estoque_atual, custo_medio").order("nome").limit(500)).data ?? [] });
+  const { data: prods } = useQuery({ queryKey: ["products-lite", storeId], queryFn: async () => (await sb.from("products").select("id, nome, codigo_barras, estoque_atual, custo_medio").eq("store_id", storeId!).order("nome").limit(500)).data ?? [] });
 
   async function save() {
     if (!productId || !qtd || !motivo) return toast.error("Preencha produto, quantidade e motivo");
@@ -49,7 +51,7 @@ function Perdas() {
     if (mErr) return toast.error(mErr.message);
     await sb.from("losses").insert({
       product_id: productId, quantidade: qtd, custo_unitario: custo, valor_total: valorTot,
-      motivo, tipo, observacoes: obs, user_id: user?.id,
+      motivo, tipo, observacoes: obs, user_id: user?.id, store_id: storeId,
     });
     toast.success("Perda registrada");
     setOpen(false); setProductId(""); setQtd(0); setMotivo(""); setObs(""); setTipo("perda");

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,11 +17,12 @@ export const Route = createFileRoute("/_app/produtos/")({
 });
 
 function ProdutosList() {
+  const { storeId } = useStore();
   const [q, setQ] = useState("");
   const { data, isLoading } = useQuery({
-    queryKey: ["products", q],
+    queryKey: ["products", q, storeId],
     queryFn: async () => {
-      let query = supabase.from("products").select("id, codigo_barras, nome, marca, estoque_atual, estoque_minimo, custo_medio, preco_venda, ativo, categorias:categoria_id(nome)").order("nome").limit(500);
+      let query = supabase.from("products").select("id, codigo_barras, nome, marca, estoque_atual, estoque_minimo, custo_medio, preco_venda, ativo, categorias:categoria_id(nome)").eq("store_id", storeId!).order("nome").limit(500);
       if (q.trim()) {
         query = query.or(`nome.ilike.%${q}%,codigo_barras.ilike.%${q}%,codigo_interno.ilike.%${q}%,marca.ilike.%${q}%`);
       }

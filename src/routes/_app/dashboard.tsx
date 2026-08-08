@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { brl, num } from "@/lib/format";
 import { Package, AlertTriangle, TrendingUp, DollarSign, ShoppingBag, Warehouse } from "lucide-react";
@@ -11,14 +12,15 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 function Dashboard() {
+  const { storeId, store } = useStore();
   const { data: stats } = useQuery({
-    queryKey: ["dashboard-stats"],
+    queryKey: ["dashboard-stats", storeId],
     queryFn: async () => {
       const [prod, sales, stockLow, expenses] = await Promise.all([
-        supabase.from("products").select("id, estoque_atual, custo_medio, preco_venda, estoque_minimo, ativo"),
-        supabase.from("sales").select("valor_total, lucro_bruto, data_venda").gte("data_venda", new Date(Date.now() - 30 * 86400000).toISOString()),
-        supabase.from("products").select("id").eq("ativo", true),
-        supabase.from("expenses").select("valor, status").in("status", ["pendente", "vencido"]),
+        supabase.from("products").select("id, estoque_atual, custo_medio, preco_venda, estoque_minimo, ativo").eq("store_id", storeId!),
+        supabase.from("sales").select("valor_total, lucro_bruto, data_venda").eq("store_id", storeId!).gte("data_venda", new Date(Date.now() - 30 * 86400000).toISOString()),
+        supabase.from("products").select("id").eq("ativo", true).eq("store_id", storeId!),
+        supabase.from("expenses").select("valor, status").eq("store_id", storeId!).in("status", ["pendente", "vencido"]),
       ]);
       const products = prod.data ?? [];
       const s = sales.data ?? [];
@@ -68,8 +70,8 @@ function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Visão geral dos últimos 30 dias.</p>
+        <h1 className="text-2xl font-bold">Dashboard — {store?.nome ?? "Mercado"}</h1>
+        <p className="text-sm text-muted-foreground">Visão geral dos últimos 30 dias deste mercado.</p>
       </div>
       <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {cards.map((c) => (
