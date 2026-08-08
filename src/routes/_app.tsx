@@ -121,11 +121,19 @@ function AppLayout() {
             </Sheet>
             <h1 className="text-lg font-semibold hidden sm:block">Gestor MiniMarket</h1>
           </div>
-          <Button variant="ghost" size="sm" onClick={signOut} className="lg:hidden"><LogOut className="h-4 w-4" /></Button>
+          <div className="flex items-center gap-2">
+            <StoreSwitcher />
+            <Button variant="ghost" size="sm" onClick={signOut} className="lg:hidden"><LogOut className="h-4 w-4" /></Button>
+          </div>
         </header>
         <main className="flex-1 p-4 lg:p-6 overflow-x-hidden">
-          <Outlet />
+          {storesLoading || !storeId ? (
+            <div className="text-sm text-muted-foreground">Carregando mercado...</div>
+          ) : (
+            <Outlet />
+          )}
         </main>
+
       </div>
     </div>
   );
