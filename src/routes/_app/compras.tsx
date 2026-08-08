@@ -223,7 +223,7 @@ function Compras() {
       const p = precos[i];
       let productId: string | null = null;
       if (it.codigo_barras) {
-        const { data: pFound } = await sb.from("products").select("id, estoque_atual, custo_medio").eq("codigo_barras", it.codigo_barras).maybeSingle();
+        const { data: pFound } = await sb.from("products").select("id, estoque_atual, custo_medio, preco_venda").eq("codigo_barras", it.codigo_barras).maybeSingle();
         if (pFound) {
           productId = pFound.id;
           const atual = Number(pFound.estoque_atual);
@@ -233,7 +233,19 @@ function Compras() {
           const update: any = { custo_ultima_compra: p.custoTotalUnit, custo_medio: novoMedio };
           if (it.atualiza_preco && p.precoSug) update.preco_venda = p.precoSug;
           await sb.from("products").update(update).eq("id", productId);
+          await sb.from("cost_history").insert({
+            product_id: productId, custo_anterior: custoAnt, custo_novo: novoMedio,
+            tipo: "compra", documento_ref: numeroNota ? `NF ${numeroNota}` : "Compra",
+          });
+          if (it.atualiza_preco && p.precoSug) {
+            await sb.from("price_history").insert({
+              product_id: productId, preco_anterior: Number(pFound.preco_venda ?? 0), preco_novo: p.precoSug,
+              user_id: user?.id ?? null,
+              motivo: `Lançamento de nota${numeroNota ? ` NF ${numeroNota}` : ""} — custo ${p.custoTotalUnit.toFixed(2)}`,
+            });
+          }
         } else {
+
           const { data: novo } = await sb.from("products").insert({
             codigo_barras: it.codigo_barras, nome: it.descricao || `Produto ${it.codigo_barras}`,
             unidade_medida: it.unidade, custo_ultima_compra: p.custoTotalUnit, custo_medio: p.custoTotalUnit,

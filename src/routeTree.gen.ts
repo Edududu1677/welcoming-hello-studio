@@ -15,6 +15,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppUsuariosRouteImport } from './routes/_app/usuarios'
 import { Route as AppRelatoriosRouteImport } from './routes/_app/relatorios'
+import { Route as AppPrecosRouteImport } from './routes/_app/precos'
 import { Route as AppPerdasRouteImport } from './routes/_app/perdas'
 import { Route as AppInventarioRouteImport } from './routes/_app/inventario'
 import { Route as AppImportarVendasRouteImport } from './routes/_app/importar-vendas'
@@ -58,6 +59,11 @@ const AppUsuariosRoute = AppUsuariosRouteImport.update({
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrecosRoute = AppPrecosRouteImport.update({
+  id: '/precos',
+  path: '/precos',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPerdasRoute = AppPerdasRouteImport.update({
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/importar-vendas': typeof AppImportarVendasRoute
   '/inventario': typeof AppInventarioRoute
   '/perdas': typeof AppPerdasRoute
+  '/precos': typeof AppPrecosRoute
   '/relatorios': typeof AppRelatoriosRoute
   '/usuarios': typeof AppUsuariosRoute
   '/produtos/$id': typeof AppProdutosIdRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/importar-vendas': typeof AppImportarVendasRoute
   '/inventario': typeof AppInventarioRoute
   '/perdas': typeof AppPerdasRoute
+  '/precos': typeof AppPrecosRoute
   '/relatorios': typeof AppRelatoriosRoute
   '/usuarios': typeof AppUsuariosRoute
   '/produtos/$id': typeof AppProdutosIdRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/_app/importar-vendas': typeof AppImportarVendasRoute
   '/_app/inventario': typeof AppInventarioRoute
   '/_app/perdas': typeof AppPerdasRoute
+  '/_app/precos': typeof AppPrecosRoute
   '/_app/relatorios': typeof AppRelatoriosRoute
   '/_app/usuarios': typeof AppUsuariosRoute
   '/_app/produtos/$id': typeof AppProdutosIdRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/importar-vendas'
     | '/inventario'
     | '/perdas'
+    | '/precos'
     | '/relatorios'
     | '/usuarios'
     | '/produtos/$id'
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/importar-vendas'
     | '/inventario'
     | '/perdas'
+    | '/precos'
     | '/relatorios'
     | '/usuarios'
     | '/produtos/$id'
@@ -267,6 +278,7 @@ export interface FileRouteTypes {
     | '/_app/importar-vendas'
     | '/_app/inventario'
     | '/_app/perdas'
+    | '/_app/precos'
     | '/_app/relatorios'
     | '/_app/usuarios'
     | '/_app/produtos/$id'
@@ -323,6 +335,13 @@ declare module '@tanstack/react-router' {
       path: '/relatorios'
       fullPath: '/relatorios'
       preLoaderRoute: typeof AppRelatoriosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/precos': {
+      id: '/_app/precos'
+      path: '/precos'
+      fullPath: '/precos'
+      preLoaderRoute: typeof AppPrecosRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/perdas': {
@@ -446,6 +465,7 @@ interface AppRouteChildren {
   AppImportarVendasRoute: typeof AppImportarVendasRoute
   AppInventarioRoute: typeof AppInventarioRoute
   AppPerdasRoute: typeof AppPerdasRoute
+  AppPrecosRoute: typeof AppPrecosRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppUsuariosRoute: typeof AppUsuariosRoute
   AppProdutosIdRoute: typeof AppProdutosIdRoute
@@ -466,6 +486,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppImportarVendasRoute: AppImportarVendasRoute,
   AppInventarioRoute: AppInventarioRoute,
   AppPerdasRoute: AppPerdasRoute,
+  AppPrecosRoute: AppPrecosRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppUsuariosRoute: AppUsuariosRoute,
   AppProdutosIdRoute: AppProdutosIdRoute,
