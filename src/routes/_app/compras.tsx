@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { brl, formatDate } from "@/lib/format";
@@ -54,10 +55,11 @@ function Compras() {
   const [bulkMarkup, setBulkMarkup] = useState<number>(40);
   const [bulkMargem, setBulkMargem] = useState<number>(30);
   const [bulkRounding, setBulkRounding] = useState<Rounding>("99");
+  const { storeId } = useStore();
 
   const { data: compras } = useQuery({
-    queryKey: ["purchases"],
-    queryFn: async () => (await sb.from("purchases").select("id, numero_nota, data_entrada, valor_total, origem, status, suppliers:fornecedor_id(razao_social)").order("created_at", { ascending: false }).limit(100)).data ?? [],
+    queryKey: ["purchases", storeId],
+    queryFn: async () => (await sb.from("purchases").select("id, numero_nota, data_entrada, valor_total, origem, status, suppliers:fornecedor_id(razao_social)").eq("store_id", storeId!).order("created_at", { ascending: false }).limit(100)).data ?? [],
   });
   const { data: fornecedores } = useQuery({ queryKey: ["suppliers-lite"], queryFn: async () => (await sb.from("suppliers").select("id, razao_social, cnpj")).data ?? [] });
 
@@ -86,7 +88,7 @@ function Compras() {
       const novos = await Promise.all((parsed.itens ?? []).map(async (it: any) => {
         let precoAtual: number | null = null;
         if (it.codigo_barras) {
-          const { data: p } = await sb.from("products").select("preco_venda").eq("codigo_barras", it.codigo_barras).maybeSingle();
+          const { data: p } = await sb.from("products").select("preco_venda").eq("codigo_barras", it.codigo_barras).eq("store_id", storeId!).maybeSingle();
           if (p) precoAtual = Number(p.preco_venda);
         }
         return {
@@ -175,7 +177,7 @@ function Compras() {
     const its = await Promise.all((full.purchase_items ?? []).map(async (it: any) => {
       let precoAtual: number | null = null;
       if (it.codigo_barras) {
-        const { data: p } = await sb.from("products").select("preco_venda").eq("codigo_barras", it.codigo_barras).maybeSingle();
+        const { data: p } = await sb.from("products").select("preco_venda").eq("codigo_barras", it.codigo_barras).eq("store_id", storeId!).maybeSingle();
         if (p) precoAtual = Number(p.preco_venda);
       }
       return {
@@ -211,7 +213,7 @@ function Compras() {
         fornecedor_id: fornecedorId || null, numero_nota: numeroNota || null, chave_acesso: nfe?.chave ?? null,
         data_emissao: nfe?.data_emissao ?? null, data_entrada: dataEntrada,
         valor_produtos: totalProdutos, valor_frete: valorFrete, valor_despesas: valorDespesas,
-        valor_total: totalNota, xml_raw: xmlText || null, origem: nfe ? "xml_nfe" : "manual",
+        valor_total: totalNota, xml_raw: xmlText || null, origem: nfe ? "xml_nfe" : "manual", store_id: storeId,
         observacoes: obs, user_id: user?.id,
       }).select("id").single();
       if (pErr) return toast.error(pErr.message);
@@ -223,7 +225,7 @@ function Compras() {
       const p = precos[i];
       let productId: string | null = null;
       if (it.codigo_barras) {
-        const { data: pFound } = await sb.from("products").select("id, estoque_atual, custo_medio, preco_venda").eq("codigo_barras", it.codigo_barras).maybeSingle();
+        const { data: pFound } = await sb.from("products").select("id, estoque_atual, custo_medio, preco_venda").eq("codigo_barras", it.codigo_barras).eq("store_id", storeId!).maybeSingle();
         if (pFound) {
           productId = pFound.id;
           const atual = Number(pFound.estoque_atual);
@@ -249,7 +251,7 @@ function Compras() {
           const { data: novo } = await sb.from("products").insert({
             codigo_barras: it.codigo_barras, nome: it.descricao || `Produto ${it.codigo_barras}`,
             unidade_medida: it.unidade, custo_ultima_compra: p.custoTotalUnit, custo_medio: p.custoTotalUnit,
-            preco_venda: p.precoSug ?? 0, estoque_atual: 0, fornecedor_id: fornecedorId || null,
+            preco_venda: p.precoSug ?? 0, estoque_atual: 0, fornecedor_id: fornecedorId || null, store_id: storeId,
           }).select("id").single();
           productId = novo?.id ?? null;
         }

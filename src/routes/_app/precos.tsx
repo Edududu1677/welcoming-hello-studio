@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ const ROUND_OPTS = [
 function PrecosPage() {
   const qc = useQueryClient();
   const { canWrite, user } = useAuth();
+  const { storeId } = useStore();
   const [q, setQ] = useState("");
   const [edits, setEdits] = useState<Record<string, Edit>>({});
   const [saving, setSaving] = useState(false);
@@ -63,12 +65,13 @@ function PrecosPage() {
   const [bulkArred, setBulkArred] = useState("99");
 
   const { data: products, isLoading } = useQuery({
-    queryKey: ["precos-products", q],
+    queryKey: ["precos-products", q, storeId],
     queryFn: async () => {
       let query = supabase
         .from("products")
         .select("id, nome, codigo_barras, codigo_interno, custo_medio, preco_venda, estoque_atual")
         .eq("ativo", true)
+        .eq("store_id", storeId!)
         .order("nome")
         .limit(500);
       if (q.trim()) query = query.or(`nome.ilike.%${q}%,codigo_barras.ilike.%${q}%,codigo_interno.ilike.%${q}%`);

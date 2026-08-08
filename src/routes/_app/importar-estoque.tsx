@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMemo, useState } from "react";
 import { readSpreadsheet, downloadXLSX, matchColumn, parsePastedData } from "@/lib/xlsx-utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { toast } from "sonner";
 import { Download, Upload, CheckCircle2, AlertCircle, ClipboardPaste } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -117,15 +118,15 @@ function ImportarEstoque() {
 
         let prod: any = null;
         if (cb) {
-          const { data } = await sb.from("products").select("id, estoque_atual").eq("codigo_barras", cb).maybeSingle();
+          const { data } = await sb.from("products").select("id, estoque_atual").eq("codigo_barras", cb).eq("store_id", storeId!).maybeSingle();
           prod = data;
         }
         if (!prod && ci) {
-          const { data } = await sb.from("products").select("id, estoque_atual").eq("codigo_interno", ci).maybeSingle();
+          const { data } = await sb.from("products").select("id, estoque_atual").eq("codigo_interno", ci).eq("store_id", storeId!).maybeSingle();
           prod = data;
         }
         if (!prod && nome) {
-          const { data } = await sb.from("products").select("id, estoque_atual").eq("nome", nome).maybeSingle();
+          const { data } = await sb.from("products").select("id, estoque_atual").eq("nome", nome).eq("store_id", storeId!).maybeSingle();
           prod = data;
         }
 
@@ -137,7 +138,7 @@ function ImportarEstoque() {
             marca: marca || null,
             unidade_medida: un || "un",
             custo_medio: custo, custo_ultima_compra: custo, preco_venda: preco,
-            estoque_atual: 0, estoque_minimo: estMin, categoria_id: catId,
+            estoque_atual: 0, estoque_minimo: estMin, categoria_id: catId, store_id: storeId,
           };
           const { data, error } = await sb.from("products").insert(payload).select("id").single();
           if (error) throw error;

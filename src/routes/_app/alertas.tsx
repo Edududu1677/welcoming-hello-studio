@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, AlertCircle, Info, Check, Trash2 } from "lucide-react";
@@ -16,46 +17,47 @@ export const Route = createFileRoute("/_app/alertas")({
 
 function Alertas() {
   const qc = useQueryClient();
+  const { storeId } = useStore();
   const sb: any = supabase;
 
   const { data } = useQuery({
-    queryKey: ["alerts"],
-    queryFn: async () => (await sb.from("alerts").select("*, products:product_id(nome)").order("created_at", { ascending: false }).limit(200)).data ?? [],
+    queryKey: ["alerts", storeId],
+    queryFn: async () => (await sb.from("alerts").select("*, products:product_id(nome)").eq("store_id", storeId!).order("created_at", { ascending: false }).limit(200)).data ?? [],
   });
 
   async function generateAlerts() {
     // Stock alerts
-    const { data: low } = await sb.from("products").select("id, nome, estoque_atual, estoque_minimo").eq("ativo", true);
+    const { data: low } = await sb.from("products").select("id, nome, estoque_atual, estoque_minimo").eq("ativo", true).eq("store_id", storeId!);
     let created = 0;
     for (const p of low ?? []) {
       const est = Number(p.estoque_atual), min = Number(p.estoque_minimo);
       if (est <= 0) {
-        await sb.from("alerts").upsert({ tipo: "sem_estoque", severidade: "erro", titulo: `Sem estoque: ${p.nome}`, product_id: p.id, status: "novo" }, { onConflict: "product_id,tipo" as any }).select();
+        await sb.from("alerts").upsert({ tipo: "sem_estoque", severidade: "erro", titulo: `Sem estoque: ${p.nome}`, product_id: p.id, status: "novo", store_id: storeId }, { onConflict: "product_id,tipo" as any }).select();
         created++;
       } else if (min > 0 && est <= min) {
-        await sb.from("alerts").upsert({ tipo: "estoque_baixo", severidade: "aviso", titulo: `Estoque baixo: ${p.nome}`, product_id: p.id, status: "novo" }, { onConflict: "product_id,tipo" as any });
+        await sb.from("alerts").upsert({ tipo: "estoque_baixo", severidade: "aviso", titulo: `Estoque baixo: ${p.nome}`, product_id: p.id, status: "novo", store_id: storeId }, { onConflict: "product_id,tipo" as any });
         created++;
       }
     }
     toast.success(`Verificação concluída — ${created} alertas`);
-    qc.invalidateQueries({ queryKey: ["alerts"] });
+    qc.invalidateQueries({ queryKey: ["alerts", storeId] });
   }
 
   async function markStatus(id: string, status: string) {
     await sb.from("alerts").update({ status }).eq("id", id);
-    qc.invalidateQueries({ queryKey: ["alerts"] });
+    qc.invalidateQueries({ queryKey: ["alerts", storeId] });
   }
 
   async function removeAlert(id: string) {
     await sb.from("alerts").delete().eq("id", id);
-    qc.invalidateQueries({ queryKey: ["alerts"] });
+    qc.invalidateQueries({ queryKey: ["alerts", storeId] });
   }
 
   async function clearResolved() {
     if (!confirm("Excluir todos os alertas resolvidos e ignorados?")) return;
-    await sb.from("alerts").delete().in("status", ["resolvido", "ignorado"]);
+    await sb.from("alerts").delete().eq("store_id", storeId!).in("status", ["resolvido", "ignorado"]);
     toast.success("Alertas limpos");
-    qc.invalidateQueries({ queryKey: ["alerts"] });
+    qc.invalidateQueries({ queryKey: ["alerts", storeId] });
   }
 
   const icon = (sev: string) => sev === "erro" ? <AlertCircle className="h-4 w-4 text-red-600" /> : sev === "aviso" ? <AlertTriangle className="h-4 w-4 text-yellow-600" /> : <Info className="h-4 w-4 text-blue-600" />;

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { brl, num, formatDate } from "@/lib/format";
 import { downloadXLSX } from "@/lib/xlsx-utils";
 import { Download } from "lucide-react";
@@ -16,19 +17,20 @@ export const Route = createFileRoute("/_app/relatorios")({
 });
 
 function Relatorios() {
+  const { storeId } = useStore();
   const sb: any = supabase;
   const [days, setDays] = useState(30);
 
   const { data } = useQuery({
-    queryKey: ["reports", days],
+    queryKey: ["reports", days, storeId],
     queryFn: async () => {
       const since = new Date(Date.now() - days * 86400000).toISOString();
       const [prod, saleItems, sales, purchases, losses] = await Promise.all([
-        sb.from("products").select("id, nome, codigo_barras, estoque_atual, estoque_minimo, custo_medio, preco_venda, ativo, categorias:categoria_id(nome)"),
-        sb.from("sale_items").select("product_id, codigo_barras, descricao, quantidade, valor_total, lucro, sales!inner(data_venda)").gte("sales.data_venda", since),
-        sb.from("sales").select("data_venda, valor_total, lucro_bruto").gte("data_venda", since),
-        sb.from("purchases").select("data_entrada, valor_total, suppliers:fornecedor_id(razao_social)").gte("data_entrada", since.slice(0, 10)),
-        sb.from("losses").select("valor_total, tipo, motivo, data_evento").gte("data_evento", since.slice(0, 10)),
+        sb.from("products").select("id, nome, codigo_barras, estoque_atual, estoque_minimo, custo_medio, preco_venda, ativo, categorias:categoria_id(nome)").eq("store_id", storeId!),
+        sb.from("sale_items").select("product_id, codigo_barras, descricao, quantidade, valor_total, lucro, sales!inner(data_venda, store_id)").eq("sales.store_id", storeId!).gte("sales.data_venda", since),
+        sb.from("sales").select("data_venda, valor_total, lucro_bruto").eq("store_id", storeId!).gte("data_venda", since),
+        sb.from("purchases").select("data_entrada, valor_total, suppliers:fornecedor_id(razao_social)").eq("store_id", storeId!).gte("data_entrada", since.slice(0, 10)),
+        sb.from("losses").select("valor_total, tipo, motivo, data_evento").eq("store_id", storeId!).gte("data_evento", since.slice(0, 10)),
       ]);
       return { products: prod.data ?? [], saleItems: saleItems.data ?? [], sales: sales.data ?? [], purchases: purchases.data ?? [], losses: losses.data ?? [] };
     },

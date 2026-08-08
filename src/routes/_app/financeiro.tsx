@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { useState } from "react";
 import { toast } from "sonner";
 import { brl, formatDate } from "@/lib/format";
@@ -25,6 +26,7 @@ const CATEGORIAS = ["energia", "internet", "aluguel", "funcionarios", "manutenca
 function Financeiro() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { storeId } = useStore();
   const sb: any = supabase;
   const [open, setOpen] = useState(false);
   const empty: any = { descricao: "", categoria: "outras", valor: 0, data_vencimento: "", data_pagamento: null, forma_pagamento: "", status: "pendente", observacoes: "" };
@@ -32,13 +34,13 @@ function Financeiro() {
   const [editing, setEditing] = useState<any>(null);
 
   const { data: exp } = useQuery({
-    queryKey: ["expenses"],
-    queryFn: async () => (await sb.from("expenses").select("*").order("data_vencimento", { ascending: true }).limit(200)).data ?? [],
+    queryKey: ["expenses", storeId],
+    queryFn: async () => (await sb.from("expenses").select("*").eq("store_id", storeId!).order("data_vencimento", { ascending: true }).limit(200)).data ?? [],
   });
 
   async function save() {
     if (!form.descricao?.trim() || !Number(form.valor)) return toast.error("Descrição e valor obrigatórios");
-    const payload = { ...form, user_id: user?.id };
+    const payload = { ...form, user_id: user?.id, store_id: storeId };
     if (!payload.data_vencimento) delete payload.data_vencimento;
     if (!payload.data_pagamento) delete payload.data_pagamento;
     const res = editing ? await sb.from("expenses").update(payload).eq("id", editing.id) : await sb.from("expenses").insert(payload);

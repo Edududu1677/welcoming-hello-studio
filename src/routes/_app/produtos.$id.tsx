@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ function ProdutoEdit() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [form, setForm] = useState<any>(empty);
+  const { storeId } = useStore();
   const [saving, setSaving] = useState(false);
 
   const { data: cats } = useQuery({ queryKey: ["categories"], queryFn: async () => (await supabase.from("categories").select("id, nome").eq("ativo", true).order("nome")).data ?? [] });
@@ -54,13 +56,14 @@ function ProdutoEdit() {
       delete payload.categorias;
       // Duplicate barcode check
       if (payload.codigo_barras) {
-        const { data: dup } = await supabase.from("products").select("id, nome").eq("codigo_barras", payload.codigo_barras).maybeSingle();
+        const { data: dup } = await supabase.from("products").select("id, nome").eq("codigo_barras", payload.codigo_barras).eq("store_id", storeId!).maybeSingle();
         if (dup && dup.id !== id) {
           if (!confirm(`Código de barras já usado por "${dup.nome}". Continuar mesmo assim?`)) { setSaving(false); return; }
         }
       }
       if (isNew) {
         delete payload.id;
+        payload.store_id = storeId;
         const { data, error } = await supabase.from("products").insert(payload).select("id").single();
         if (error) throw error;
         toast.success("Produto criado");
