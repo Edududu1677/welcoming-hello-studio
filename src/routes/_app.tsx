@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   LayoutDashboard, Package, Warehouse, FileUp, ShoppingCart, Truck,
   ClipboardList, TrendingDown, Wallet, BarChart3, Bell, Users, Settings,
-  Store, LogOut, Menu, FileDown, Tags,
+  Store, LogOut, Menu, FileDown, Tags, Calculator,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
