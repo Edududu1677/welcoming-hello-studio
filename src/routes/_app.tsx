@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { StoreProvider, useStore } from "@/lib/store-context";
 import {
   LayoutDashboard, Package, Warehouse, FileUp, ShoppingCart, Truck,
   ClipboardList, TrendingDown, Wallet, BarChart3, Bell, Users, Settings,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +19,16 @@ export const Route = createFileRoute("/_app")({
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/auth" });
   },
-  component: AppLayout,
+  component: () => (
+    <StoreProvider>
+      <AppLayout />
+    </StoreProvider>
+  ),
 });
 
 const menu = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/mercados", label: "Mercados", icon: Store },
   { to: "/produtos", label: "Produtos", icon: Package },
   { to: "/categorias", label: "Categorias", icon: Tags },
   { to: "/precos", label: "Preços e margem", icon: Calculator },
@@ -40,12 +47,31 @@ const menu = [
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
+function StoreSwitcher({ className }: { className?: string }) {
+  const { storeId, stores, setStoreId } = useStore();
+  if (!stores.length) return null;
+  return (
+    <Select value={storeId ?? undefined} onValueChange={setStoreId}>
+      <SelectTrigger className={cn("w-[190px]", className)} aria-label="Mercado">
+        <SelectValue placeholder="Mercado" />
+      </SelectTrigger>
+      <SelectContent>
+        {stores.map((s) => (
+          <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function AppLayout() {
   const { user, roles, isAdmin, signOut } = useAuth();
+  const { storeId, loading: storesLoading } = useStore();
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const items = menu.filter((m) => !("adminOnly" in m && m.adminOnly) || isAdmin);
+
 
   const Nav = ({ onNav }: { onNav?: () => void }) => (
     <nav className="flex flex-col gap-1 px-2">
